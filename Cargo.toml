@@ -1,0 +1,6 @@
+[package]
+name = "word2vec"
+version = "0.1.0"
+authors = ["mklf <golifang1234@gmail.com>"]
+
+[dependencies]
