@@ -1,11 +1,11 @@
 extern crate word2vec;
-use word2vec::dictionary::*;
-use std::io;
+use word2vec::ModelBuilder;
 fn main() {
     println!("{:?}", "hello world");
-    let mut d = Dict::new();
-
-    d.read_from_file("../wiki_seg_5e4.txt");
+    let mut model = ModelBuilder::new().finallize();
+    model.train("../wiki_seg_5e4.txt", 5);
     let mut s = String::new();
-    std::io::stdin().read_line(&mut s);
+    println!("type to exit");
+    std::io::stdin().read_line(&mut s).unwrap();
+
 }

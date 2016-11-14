@@ -1,14 +1,13 @@
-use std::io;
-use std::io::BufReader;
+use std::io::{BufReader, stdout};
 use std::io::prelude::*;
 use std::fs::File;
 use std::collections::HashMap;
 
 const MAX_VOCAB_SIZE: usize = 30000000;
 
-pub struct Dict<'a> {
+pub struct Dict {
     word2ent: HashMap<String, Entry>,
-    idx2word: HashMap<usize, &'a str>,
+    idx2word: HashMap<usize, String>,
     ntokens: usize,
     size: usize,
 }
@@ -26,8 +25,8 @@ pub fn hash(word: &str) -> usize {
     h % MAX_VOCAB_SIZE
 }
 
-impl<'a> Dict<'a> {
-    pub fn new() -> Dict<'a> {
+impl Dict {
+    pub fn new() -> Dict {
         Dict {
             word2ent: HashMap::new(),
             idx2word: HashMap::new(),
@@ -35,7 +34,6 @@ impl<'a> Dict<'a> {
             size: 0,
         }
     }
-    #[inline]
     fn add_to_dict(words: &mut HashMap<String, Entry>, word: &str, size: &mut usize) {
         if !words.contains_key(word) {
             words.insert(word.to_string(),
@@ -43,7 +41,6 @@ impl<'a> Dict<'a> {
                              index: *size,
                              count: 1,
                          });
-
             *size += 1;
         } else {
             if let Some(x) = words.get_mut(word) {
@@ -51,41 +48,45 @@ impl<'a> Dict<'a> {
             }
         }
     }
-
-    pub fn read_from_file(filename: &str) -> Dict {
-        let mut input_file = File::open(filename).unwrap();
+    pub fn nsize(&self) -> usize {
+        self.size
+    }
+    pub fn read_from_file(&mut self, filename: &str) {
+        let input_file = File::open(filename).unwrap();
         let mut reader = BufReader::with_capacity(10000, input_file);
         let mut buf_str = String::with_capacity(5000);
         let mut words: HashMap<String, Entry> = HashMap::new();
-        let mut idx2word: HashMap<usize, &str> = HashMap::new();
-        let mut ntokens = 0;
-        let mut size = 0;
+        let (mut ntokens, mut size) = (0, 0);
         while reader.read_line(&mut buf_str).unwrap() > 0 {
             for word in buf_str.split_whitespace() {
                 Dict::add_to_dict(&mut words, word, &mut size);
+                ntokens += 1;
                 if ntokens % 1000000 == 0 {
                     print!("\r read {}M words", ntokens / 1000000);
-                    io::stdout().flush().ok().expect("Could not flush stdout");
+                    stdout().flush().ok().expect("Could not flush stdout");
                 }
             }
             buf_str.clear();
         }
         size = 0;
-        let mut word2ent: HashMap<String, Entry> =
-            words.into_iter().filter(|&(_, ref v)| v.count >= 5).collect();
-        for (_, v) in word2ent.iter_mut() {
-            v.index = size;
-            size += 1;
+        let word2ent: HashMap<String, Entry> = words.into_iter()
+            .filter(|&(_, ref v)| v.count >= 5)
+            .map(|(k, mut v)| {
+                v.index = size;
+                size += 1;
+                (k, v)
+            })
+            .collect();
+        self.word2ent = word2ent;
+        self.word2ent.shrink_to_fit();
+        for (k, v) in &self.word2ent {
+            self.idx2word.insert(v.index, k.to_string());
         }
-        for (k, v) in &word2ent {
-            idx2word.insert(v.index, &k);
-        }
+        self.idx2word.shrink_to_fit();
+        self.size = size;
+        self.ntokens = ntokens;
         println!("\r Read {} M words", ntokens / 1000000);
-        Dict {
-            word2ent: word2ent,
-            idx2word: idx2word,
-            ntokens: ntokens,
-            size: size,
-        }
+        println!("\r {} unique words in total", size);
+
     }
 }
