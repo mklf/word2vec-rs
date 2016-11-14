@@ -11,3 +11,4 @@ pub use model::ModelBuilder;
 
 pub mod dictionary;
 pub use dictionary::Dict;
+pub mod matrix;

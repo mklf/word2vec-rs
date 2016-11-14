@@ -4,10 +4,12 @@ use std::fs::File;
 use std::collections::HashMap;
 
 const MAX_VOCAB_SIZE: usize = 30000000;
+const MAX_LINE_LENGHT: usize = 1000;
+
 
 pub struct Dict {
     word2ent: HashMap<String, Entry>,
-    idx2word: HashMap<usize, String>,
+    idx2word: Vec<String>,
     ntokens: usize,
     size: usize,
 }
@@ -29,7 +31,7 @@ impl Dict {
     pub fn new() -> Dict {
         Dict {
             word2ent: HashMap::new(),
-            idx2word: HashMap::new(),
+            idx2word: Vec::new(),
             ntokens: 0,
             size: 0,
         }
@@ -50,6 +52,24 @@ impl Dict {
     }
     pub fn nsize(&self) -> usize {
         self.size
+    }
+    pub fn counts(&self) -> Vec<usize> {
+
+        let mut counts_ = vec![0;self.idx2word.len()];
+        for (i, v) in self.idx2word.iter().enumerate() {
+            counts_[i] = self.word2ent[v].index;
+        }
+        counts_
+    }
+    pub fn read_line(&self, line: &mut String, lines: &mut Vec<usize>) {
+        for word in line.split_whitespace() {
+            match self.word2ent.get(word) {
+                Some(e) => {
+                    lines.push(e.index);
+                }
+                None => {}
+            }
+        }
     }
     pub fn read_from_file(&mut self, filename: &str) {
         let input_file = File::open(filename).unwrap();
@@ -79,14 +99,14 @@ impl Dict {
             .collect();
         self.word2ent = word2ent;
         self.word2ent.shrink_to_fit();
+        self.idx2word = vec!["".to_string();self.word2ent.len()];
         for (k, v) in &self.word2ent {
-            self.idx2word.insert(v.index, k.to_string());
+            self.idx2word[v.index] = k.to_string();
         }
         self.idx2word.shrink_to_fit();
         self.size = size;
         self.ntokens = ntokens;
         println!("\r Read {} M words", ntokens / 1000000);
         println!("\r {} unique words in total", size);
-
     }
 }

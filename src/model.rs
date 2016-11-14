@@ -1,14 +1,24 @@
 use dictionary::Dict;
+use matrix::Matrix;
 use std::thread;
 use std;
+use std::io::{BufReader, BufRead};
+use std::fs::File;
 extern crate rand;
 use self::rand::distributions::{IndependentSample, Range};
+use self::rand::Rng;
+const SIGMOID_TABLE_SIZE: usize = 512;
+const MAX_SIGMOID: f32 = 8f32;
+const NEGATIVE_TABLE_SIZE: usize = 10000000;
+
 pub struct Model {
     negative: usize,
     window: usize,
     embedding: Vec<f32>,
     vector_size: usize,
     dict: Dict,
+    sigmoid_table: [f32; SIGMOID_TABLE_SIZE],
+    negative_table: Vec<usize>,
 }
 pub struct ModelBuilder {
     negative: usize,
@@ -42,6 +52,8 @@ impl ModelBuilder {
             vector_size: self.vector_size,
             embedding: Vec::new(),
             dict: Dict::new(),
+            sigmoid_table: [0f32; SIGMOID_TABLE_SIZE],
+            negative_table: Vec::new(),
         }
     }
 }
@@ -54,29 +66,72 @@ impl Model {
             *v = between.ind_sample(&mut rng);
         }
     }
-    pub fn train(mut self, filename: &str, workers: u32) {
+    fn skipgram(i: u32, matrix: &mut Vec<f32>) {
+        matrix[i as usize] = i as f32;
+    }
+    fn init_sigmoid_table(&mut self) {
+        for i in 0..SIGMOID_TABLE_SIZE {
+            let x = (i as f64 * 2f64 * MAX_SIGMOID as f64) / SIGMOID_TABLE_SIZE as f64 -
+                    MAX_SIGMOID as f64;
+            self.sigmoid_table[i] = 1.0 / (1.0 + (-x).exp()) as f32;
+        }
+    }
+    fn init_negative_table(&mut self) {
+        let counts = self.dict.counts();
+        let mut z = 0f64;
+        for c in &counts {
+            z += (*c as f64).powf(0.5);
+        }
+        for i in counts {
+            let c = (i as f64).powf(0.5);
+            for j in 0..(c * NEGATIVE_TABLE_SIZE as f64 / z) as usize {
+                self.negative_table.push(i);
+            }
+        }
+        let length = self.negative_table.len();
+        for i in 0..self.negative_table.len() {
+            let idx: usize = (rand::thread_rng().next_u32() % length as u32) as usize;
+            let tmp = self.negative_table[i];
+            self.negative_table[i] = self.negative_table[idx];
+            self.negative_table[idx as usize] = tmp;
+        }
+
+    }
+
+
+    pub fn train(&mut self, filename: &str, workers: u32) {
         let mut dict = Dict::new();
         dict.read_from_file(filename);
         self.init_embedding(dict.nsize());
-
-        let mut s = String::new();
-        println!("type to exit");
-        std::io::stdin().read_line(&mut s).unwrap();
+        self.dict = dict;
+        self.init_sigmoid_table();
+        self.init_negative_table();
         let mut handles: Vec<_> = Vec::new();
-        let emb_data = &mut self.embedding as *mut Vec<_>;
+        let mut mo = &mut *self as *mut Model;
 
         unsafe {
             for i in 0..workers {
-                let x = std::mem::transmute::<*mut Vec<f32>, u64>(emb_data);
+                let model = std::mem::transmute::<*mut Model, u64>(mo);
+                let filename = filename.to_string();
                 handles.push(thread::spawn(move || {
-                    let ref k = *std::mem::transmute::<u64, *mut Vec<f32>>(x);
-                    print!("{} ", k[1]);
-                }))
+                    let ref mut model = *std::mem::transmute::<u64, *mut Model>(model);
+                    let ref dict = model.dict;
+                    let input_file = File::open(filename).unwrap();
+                    let mut reader = BufReader::with_capacity(10000, input_file);
+                    let mut lines = Vec::with_capacity(1000);
+                    let mut mat =
+                        Matrix::new(&mut model.embedding, dict.nsize(), model.vector_size);
+                    for line in reader.lines() {
+                        let mut line = line.unwrap();
+                        dict.read_line(&mut line, &mut lines);
+                        // Model::skipgram(i, &mut model.embedding);
+                        lines.clear();
+                    }
+                }));
+            }
+            for h in handles {
+                h.join().unwrap();
             }
         }
-        for h in handles {
-            h.join();
-        }
-        self.dict = dict;
     }
 }
