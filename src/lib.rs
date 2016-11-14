@@ -8,3 +8,6 @@ mod tests {
 
 mod model;
 pub use model::Model;
+
+pub mod dictionary;
+pub use dictionary::Dict;
