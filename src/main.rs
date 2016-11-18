@@ -1,10 +1,10 @@
 extern crate word2vec;
-use word2vec::ModelBuilder;
+use word2vec::{train, parse_arguments};
+use std::env::args;
 fn main() {
-    let mut model = ModelBuilder::new().finallize();
-    model.train("../wiki_seg_5e4.txt", 5);
-    let mut s = String::new();
-    println!("type to exit");
-    std::io::stdin().read_line(&mut s).unwrap();
-
+    let args_str = args().collect::<Vec<String>>();
+    let arguments = parse_arguments(&args_str);
+    println!("{:?}", arguments);
+    train(&arguments);
+    // more program logic goes here...
 }

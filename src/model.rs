@@ -1,136 +1,155 @@
 use dictionary::Dict;
 use matrix::Matrix;
-use std::thread;
 use std;
-use std::io::{BufReader, BufRead};
-use std::fs::File;
 extern crate rand;
-use self::rand::distributions::{IndependentSample, Range};
-use self::rand::Rng;
-const SIGMOID_TABLE_SIZE: usize = 512;
-const MAX_SIGMOID: f32 = 8f32;
-const NEGATIVE_TABLE_SIZE: usize = 10000000;
+use self::rand::{ThreadRng, thread_rng};
+use {MAX_SIGMOID, SIGMOID_TABLE_SIZE, LOG_TABLE_SIZE};
 
-pub struct Model {
-    negative: usize,
-    window: usize,
-    embedding: Vec<f32>,
-    vector_size: usize,
-    dict: Dict,
+
+
+fn init_sigmoid_table() -> [f32; SIGMOID_TABLE_SIZE] {
+    let mut sigmoid_table = [0f32; SIGMOID_TABLE_SIZE];
+    for i in 0..SIGMOID_TABLE_SIZE {
+        let x = (i as f64 * 2f64 * MAX_SIGMOID as f64) / SIGMOID_TABLE_SIZE as f64 -
+                MAX_SIGMOID as f64;
+        sigmoid_table[i] = 1.0 / (1.0 + (-x).exp()) as f32;
+    }
+    sigmoid_table
+}
+fn init_log_table() -> [f32; LOG_TABLE_SIZE + 1] {
+    let mut log_table = [0f32; LOG_TABLE_SIZE + 1];
+    for i in 0..LOG_TABLE_SIZE + 1 {
+        let x = (i as f32 + 1e-5) / LOG_TABLE_SIZE as f32;
+        log_table[i] = x.ln();
+    }
+    log_table
+}
+
+
+pub struct Model<'a> {
+    input: &'a mut Matrix,
+    output: &'a mut Matrix,
+    dim: usize,
+    lr: f32,
+    neg: usize,
+    rng: ThreadRng,
+    grad_: Vec<f32>,
+    neg_pos: usize,
     sigmoid_table: [f32; SIGMOID_TABLE_SIZE],
+    log_table: [f32; LOG_TABLE_SIZE + 1],
     negative_table: Vec<usize>,
 }
-pub struct ModelBuilder {
-    negative: usize,
-    window: usize,
-    vector_size: usize,
-}
-impl ModelBuilder {
-    pub fn new() -> ModelBuilder {
-        ModelBuilder {
-            negative: 5,
-            window: 5,
-            vector_size: 100,
-        }
-    }
-    pub fn negative(&mut self, negative: usize) -> &mut ModelBuilder {
-        self.negative = negative;
-        self
-    }
-    pub fn window(&mut self, window: usize) -> &mut ModelBuilder {
-        self.window = window;
-        self
-    }
-    pub fn vector_size(&mut self, vector_size: usize) -> &mut ModelBuilder {
-        self.vector_size = vector_size;
-        self
-    }
-    pub fn finallize(&self) -> Model {
+impl<'a> Model<'a> {
+    pub fn new(input: &'a mut Matrix,
+               output: &'a mut Matrix,
+               dim: usize,
+               lr: f32,
+               tid: u32,
+               neg: usize,
+               neg_table: Vec<usize>)
+               -> Model<'a> {
         Model {
-            negative: self.negative,
-            window: self.window,
-            vector_size: self.vector_size,
-            embedding: Vec::new(),
-            dict: Dict::new(),
-            sigmoid_table: [0f32; SIGMOID_TABLE_SIZE],
-            negative_table: Vec::new(),
+            input: input,
+            output: output,
+            dim: dim,
+            lr: lr,
+            neg: neg,
+            rng: thread_rng(),
+            grad_: vec![0f32;dim],
+            neg_pos: 0,
+            sigmoid_table: init_sigmoid_table(),
+            log_table: init_log_table(),
+            negative_table: neg_table,
+        }
+
+    }
+    fn log(&self, x: f32) -> f32 {
+        if x > 1.0 {
+            return x;
+        }
+        let i = (x * (LOG_TABLE_SIZE as f32)) as usize;
+        self.log_table[i]
+    }
+    fn sigmoid(&self, x: f32) -> f32 {
+        if x < -MAX_SIGMOID {
+            0f32
+        } else if x > MAX_SIGMOID {
+            1f32
+        } else {
+            let i = (x + MAX_SIGMOID as f32) * SIGMOID_TABLE_SIZE as f32 / MAX_SIGMOID as f32 / 2.;
+            self.sigmoid_table[i as usize]
         }
     }
-}
-impl Model {
-    fn init_embedding(&mut self, nrows: usize) {
-        self.embedding = vec![0f32;self.vector_size * nrows];
-        let between = Range::new(-1f32, 1.);
-        let mut rng = rand::thread_rng();
-        for v in &mut self.embedding {
-            *v = between.ind_sample(&mut rng);
+
+    #[inline(always)]
+    pub fn set_lr(&mut self, lr: f32) {
+        self.lr = lr;
+    }
+    #[inline(always)]
+    pub fn get_lr(&self) -> f32 {
+        self.lr
+    }
+
+    fn binary_losgistic(&mut self, input_emb: *mut f32, target: usize, label: bool) -> f32 {
+        let sum = self.output.dot_row(input_emb, target);
+        let score = self.sigmoid(sum);
+        let alpha = self.lr * (label as i32 as f32 - score);
+        let tar_emb = self.output.get_row(target);
+        self.add_mul_row(tar_emb, alpha);
+        self.output.add_row(input_emb, target, alpha);
+        if label {
+            -self.log(score)
+        } else {
+            -self.log(1.0 - score)
         }
     }
-    fn skipgram(i: u32, matrix: &mut Vec<f32>) {
-        matrix[i as usize] = i as f32;
+    #[inline(always)]
+    pub fn update(&mut self, input: usize, target: usize) -> f32 {
+        self.negative_sampling(input, target)
     }
-    fn init_sigmoid_table(&mut self) {
-        for i in 0..SIGMOID_TABLE_SIZE {
-            let x = (i as f64 * 2f64 * MAX_SIGMOID as f64) / SIGMOID_TABLE_SIZE as f64 -
-                    MAX_SIGMOID as f64;
-            self.sigmoid_table[i] = 1.0 / (1.0 + (-x).exp()) as f32;
-        }
-    }
-    fn init_negative_table(&mut self) {
-        let counts = self.dict.counts();
-        let mut z = 0f64;
-        for c in &counts {
-            z += (*c as f64).powf(0.5);
-        }
-        for i in counts {
-            let c = (i as f64).powf(0.5);
-            for j in 0..(c * NEGATIVE_TABLE_SIZE as f64 / z) as usize {
-                self.negative_table.push(i);
+
+    fn negative_sampling(&mut self, input: usize, target: usize) -> f32 {
+        let input_emb = self.input.get_row(input);
+        let mut loss = 0f32;
+        self.grad_zero();
+        for i in 0..self.neg {
+            if i == 0 {
+                loss += self.binary_losgistic(input_emb, target, true);
+            } else {
+                let neg_sample = self.get_negative(target);
+                loss += self.binary_losgistic(input_emb, neg_sample, false);
             }
         }
-        let length = self.negative_table.len();
-        for i in 0..self.negative_table.len() {
-            let idx: usize = (rand::thread_rng().next_u32() % length as u32) as usize;
-            let tmp = self.negative_table[i];
-            self.negative_table[i] = self.negative_table[idx];
-            self.negative_table[idx as usize] = tmp;
+        self.input.add_row(unsafe { self.grad_.as_mut_ptr() }, input, 1.0);
+        loss
+    }
+    fn get_negative(&mut self, target: usize) -> usize {
+        loop {
+            let negative = self.negative_table[self.neg_pos];
+            self.neg_pos = (self.neg_pos + 1) % self.negative_table.len();
+            if target != negative {
+                return negative;
+            }
         }
-
     }
 
-
-    pub fn train(&mut self, filename: &str, workers: u32) {
-        let mut dict = Dict::new();
-        dict.read_from_file(filename);
-        self.init_embedding(dict.nsize());
-        self.dict = dict;
-        self.init_sigmoid_table();
-        self.init_negative_table();
-        let mut handles: Vec<_> = Vec::new();
-        let mut mo = &mut *self as *mut Model;
-
-        unsafe {
-            for i in 0..workers {
-                let model = std::mem::transmute::<*mut Model, u64>(mo);
-                let filename = filename.to_string();
-                handles.push(thread::spawn(move || {
-                    let ref mut model = *std::mem::transmute::<u64, *mut Model>(model);
-                    let ref dict = model.dict;
-                    let input_file = File::open(filename).unwrap();
-                    let mut reader = BufReader::with_capacity(10000, input_file);
-                    let mut lines = Vec::with_capacity(1000);
-                    let mut mat =
-                        Matrix::new(&mut model.embedding, dict.nsize(), model.vector_size);
-                    for line in reader.lines() {
-                        let mut line = line.unwrap();
-                        dict.read_line(&mut line, &mut lines);
-                        // Model::skipgram(i, &mut model.embedding);
-                        lines.clear();
-                    }
-                }));
+    #[inline(always)]
+    fn grad_zero(&mut self) {
+        for a in self.grad_.as_mut_slice() {
+            *a = 0f32;
+        }
+    }
+    fn add_row(&mut self, other: *mut f32) {
+        for i in 0..self.grad_.len() {
+            unsafe {
+                *self.grad_.get_unchecked_mut(i) += *other.offset(i as isize);
             }
-            for h in handles {
-                h.join().unwrap();
+        }
+    }
+    fn add_mul_row(&mut self, other: *mut f32, a: f32) {
+        for i in 0..self.grad_.len() {
+            unsafe {
+                *self.grad_.get_unchecked_mut(i) += a * (*other.offset(i as isize));
             }
         }
     }

@@ -1,16 +1,14 @@
-use std::io::{BufReader, stdout};
+use std::io::{BufReader, stdout, stderr};
 use std::io::prelude::*;
 use std::fs::File;
 use std::collections::HashMap;
-
-const MAX_VOCAB_SIZE: usize = 30000000;
-const MAX_LINE_LENGHT: usize = 1000;
-
-
+use std::process;
+use NEGATIVE_TABLE_SIZE;
+use rand::{thread_rng, Rng};
 pub struct Dict {
     word2ent: HashMap<String, Entry>,
     idx2word: Vec<String>,
-    ntokens: usize,
+    pub ntokens: usize,
     size: usize,
 }
 struct Entry {
@@ -18,23 +16,42 @@ struct Entry {
     count: u32,
 }
 
-pub fn hash(word: &str) -> usize {
-    let mut h = 2166136261usize;
-    for w in word.bytes() {
-        h = h ^ (w as usize);
-        h = h.wrapping_add(16777619);
-    }
-    h % MAX_VOCAB_SIZE
-}
 
 impl Dict {
-    pub fn new() -> Dict {
+    fn new() -> Dict {
         Dict {
             word2ent: HashMap::new(),
             idx2word: Vec::new(),
             ntokens: 0,
             size: 0,
         }
+    }
+    pub fn init_negative_table(&self) -> Vec<usize> {
+        let mut negative_table = Vec::new();
+        let counts = self.counts();
+        let mut z = 0f64;
+        for c in &counts {
+            z += (*c as f64).powf(0.5);
+        }
+        for i in counts {
+            let c = (i as f64).powf(0.5);
+            for j in 0..(c * NEGATIVE_TABLE_SIZE as f64 / z) as usize {
+                negative_table.push(i);
+            }
+        }
+        let mut rng = thread_rng();
+        rng.shuffle(&mut negative_table);
+        negative_table
+
+    }
+
+    fn negative_table(&mut self, dict: &mut Dict) {
+        let counts = self.counts();
+        let mut z = 0f64;
+        for c in &counts {
+            z += (*c as f64).powf(0.5);
+        }
+
     }
     fn add_to_dict(words: &mut HashMap<String, Entry>, word: &str, size: &mut usize) {
         if !words.contains_key(word) {
@@ -50,9 +67,11 @@ impl Dict {
             }
         }
     }
+
     pub fn nsize(&self) -> usize {
         self.size
     }
+
     pub fn counts(&self) -> Vec<usize> {
 
         let mut counts_ = vec![0;self.idx2word.len()];
@@ -71,8 +90,15 @@ impl Dict {
             }
         }
     }
-    pub fn read_from_file(&mut self, filename: &str) {
-        let input_file = File::open(filename).unwrap();
+    pub fn new_from_file(filename: &str) -> Dict {
+        let mut dict = Dict::new();
+        let input_file = match File::open(filename) {
+            Ok(fp) => fp,
+            Err(e) => {
+                stderr().write_fmt(format_args!("{}[文件名:{}]\n", e, filename)).unwrap();
+                process::exit(1);
+            }
+        };
         let mut reader = BufReader::with_capacity(10000, input_file);
         let mut buf_str = String::with_capacity(5000);
         let mut words: HashMap<String, Entry> = HashMap::new();
@@ -82,7 +108,7 @@ impl Dict {
                 Dict::add_to_dict(&mut words, word, &mut size);
                 ntokens += 1;
                 if ntokens % 1000000 == 0 {
-                    print!("\r read {}M words", ntokens / 1000000);
+                    print!("\rRead {}M words", ntokens / 1000000);
                     stdout().flush().ok().expect("Could not flush stdout");
                 }
             }
@@ -97,16 +123,17 @@ impl Dict {
                 (k, v)
             })
             .collect();
-        self.word2ent = word2ent;
-        self.word2ent.shrink_to_fit();
-        self.idx2word = vec!["".to_string();self.word2ent.len()];
-        for (k, v) in &self.word2ent {
-            self.idx2word[v.index] = k.to_string();
+        dict.word2ent = word2ent;
+        dict.word2ent.shrink_to_fit();
+        dict.idx2word = vec!["".to_string();dict.word2ent.len()];
+        for (k, v) in &dict.word2ent {
+            dict.idx2word[v.index] = k.to_string();
         }
-        self.idx2word.shrink_to_fit();
-        self.size = size;
-        self.ntokens = ntokens;
+        dict.idx2word.shrink_to_fit();
+        dict.size = size;
+        dict.ntokens = ntokens;
         println!("\r Read {} M words", ntokens / 1000000);
         println!("\r {} unique words in total", size);
+        dict
     }
 }
