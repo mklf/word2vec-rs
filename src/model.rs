@@ -1,15 +1,13 @@
-use dictionary::Dict;
 use matrix::Matrix;
-use std;
 extern crate rand;
-use self::rand::{ThreadRng, thread_rng};
+use rand::{ThreadRng, thread_rng};
 use {MAX_SIGMOID, SIGMOID_TABLE_SIZE, LOG_TABLE_SIZE};
 
 
 
-fn init_sigmoid_table() -> [f32; SIGMOID_TABLE_SIZE] {
-    let mut sigmoid_table = [0f32; SIGMOID_TABLE_SIZE];
-    for i in 0..SIGMOID_TABLE_SIZE {
+fn init_sigmoid_table() -> [f32; SIGMOID_TABLE_SIZE + 1] {
+    let mut sigmoid_table = [0f32; SIGMOID_TABLE_SIZE + 1];
+    for i in 0..SIGMOID_TABLE_SIZE + 1 {
         let x = (i as f64 * 2f64 * MAX_SIGMOID as f64) / SIGMOID_TABLE_SIZE as f64 -
                 MAX_SIGMOID as f64;
         sigmoid_table[i] = 1.0 / (1.0 + (-x).exp()) as f32;
@@ -32,12 +30,13 @@ pub struct Model<'a> {
     dim: usize,
     lr: f32,
     neg: usize,
-    rng: ThreadRng,
     grad_: Vec<f32>,
     neg_pos: usize,
-    sigmoid_table: [f32; SIGMOID_TABLE_SIZE],
+    sigmoid_table: [f32; SIGMOID_TABLE_SIZE + 1],
     log_table: [f32; LOG_TABLE_SIZE + 1],
     negative_table: Vec<usize>,
+    loss: f32,
+    nsamples: usize,
 }
 impl<'a> Model<'a> {
     pub fn new(input: &'a mut Matrix,
@@ -54,15 +53,17 @@ impl<'a> Model<'a> {
             dim: dim,
             lr: lr,
             neg: neg,
-            rng: thread_rng(),
             grad_: vec![0f32;dim],
             neg_pos: 0,
             sigmoid_table: init_sigmoid_table(),
             log_table: init_log_table(),
             negative_table: neg_table,
+            loss: 0.,
+            nsamples: 0,
         }
 
     }
+    #[inline]
     fn log(&self, x: f32) -> f32 {
         if x > 1.0 {
             return x;
@@ -70,6 +71,7 @@ impl<'a> Model<'a> {
         let i = (x * (LOG_TABLE_SIZE as f32)) as usize;
         self.log_table[i]
     }
+    #[inline]
     fn sigmoid(&self, x: f32) -> f32 {
         if x < -MAX_SIGMOID {
             0f32
@@ -79,6 +81,10 @@ impl<'a> Model<'a> {
             let i = (x + MAX_SIGMOID as f32) * SIGMOID_TABLE_SIZE as f32 / MAX_SIGMOID as f32 / 2.;
             self.sigmoid_table[i as usize]
         }
+    }
+    #[inline]
+    pub fn get_loss(&self) -> f32 {
+        self.loss / self.nsamples as f32
     }
 
     #[inline(always)]
@@ -104,8 +110,9 @@ impl<'a> Model<'a> {
         }
     }
     #[inline(always)]
-    pub fn update(&mut self, input: usize, target: usize) -> f32 {
-        self.negative_sampling(input, target)
+    pub fn update(&mut self, input: usize, target: usize) {
+        self.loss += self.negative_sampling(input, target);
+        self.nsamples += 1;
     }
 
     fn negative_sampling(&mut self, input: usize, target: usize) -> f32 {
@@ -120,7 +127,7 @@ impl<'a> Model<'a> {
                 loss += self.binary_losgistic(input_emb, neg_sample, false);
             }
         }
-        self.input.add_row(unsafe { self.grad_.as_mut_ptr() }, input, 1.0);
+        self.input.add_row(self.grad_.as_mut_ptr(), input, 1.0);
         loss
     }
     fn get_negative(&mut self, target: usize) -> usize {
@@ -139,13 +146,7 @@ impl<'a> Model<'a> {
             *a = 0f32;
         }
     }
-    fn add_row(&mut self, other: *mut f32) {
-        for i in 0..self.grad_.len() {
-            unsafe {
-                *self.grad_.get_unchecked_mut(i) += *other.offset(i as isize);
-            }
-        }
-    }
+    #[inline(always)]
     fn add_mul_row(&mut self, other: *mut f32, a: f32) {
         for i in 0..self.grad_.len() {
             unsafe {

@@ -35,7 +35,7 @@ impl Dict {
         }
         for i in counts {
             let c = (i as f64).powf(0.5);
-            for j in 0..(c * NEGATIVE_TABLE_SIZE as f64 / z) as usize {
+            for _ in 0..(c * NEGATIVE_TABLE_SIZE as f64 / z) as usize {
                 negative_table.push(i);
             }
         }
@@ -45,14 +45,6 @@ impl Dict {
 
     }
 
-    fn negative_table(&mut self, dict: &mut Dict) {
-        let counts = self.counts();
-        let mut z = 0f64;
-        for c in &counts {
-            z += (*c as f64).powf(0.5);
-        }
-
-    }
     fn add_to_dict(words: &mut HashMap<String, Entry>, word: &str, size: &mut usize) {
         if !words.contains_key(word) {
             words.insert(word.to_string(),
@@ -80,8 +72,10 @@ impl Dict {
         }
         counts_
     }
-    pub fn read_line(&self, line: &mut String, lines: &mut Vec<usize>) {
+    pub fn read_line(&self, line: &mut String, lines: &mut Vec<usize>) -> usize {
+        let mut i = 0;
         for word in line.split_whitespace() {
+            i += 1;
             match self.word2ent.get(word) {
                 Some(e) => {
                     lines.push(e.index);
@@ -89,6 +83,7 @@ impl Dict {
                 None => {}
             }
         }
+        i
     }
     pub fn new_from_file(filename: &str) -> Dict {
         let mut dict = Dict::new();
