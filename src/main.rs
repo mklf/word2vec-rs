@@ -6,5 +6,6 @@ fn main() {
     let arguments = parse_arguments(&args_str);
     println!("{:?}", arguments);
     train(&arguments);
+
     // more program logic goes here...
 }

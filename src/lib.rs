@@ -1,4 +1,5 @@
 extern crate rand;
+extern crate time;
 mod model;
 pub use model::Model;
 

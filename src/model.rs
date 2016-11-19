@@ -69,7 +69,7 @@ impl<'a> Model<'a> {
             return x;
         }
         let i = (x * (LOG_TABLE_SIZE as f32)) as usize;
-        self.log_table[i]
+        unsafe { *self.log_table.get_unchecked(i) }
     }
     #[inline]
     fn sigmoid(&self, x: f32) -> f32 {
@@ -79,7 +79,7 @@ impl<'a> Model<'a> {
             1f32
         } else {
             let i = (x + MAX_SIGMOID as f32) * SIGMOID_TABLE_SIZE as f32 / MAX_SIGMOID as f32 / 2.;
-            self.sigmoid_table[i as usize]
+            unsafe { *self.sigmoid_table.get_unchecked(i as usize) }
         }
     }
     #[inline]

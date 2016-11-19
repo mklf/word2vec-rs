@@ -1,7 +1,8 @@
+#![feature(core_intrinsics)]
 use rand;
 use rand::distributions::{IndependentSample, Range};
 use std::cell::UnsafeCell;
-
+use std::ptr;
 pub struct MatrixWrapper {
     pub inner: UnsafeCell<Matrix>,
 }
@@ -40,18 +41,22 @@ impl Matrix {
     }
     #[inline(always)]
     pub fn add_row(&mut self, vec: *mut f32, i: usize, mul: f32) {
-        for t in 0..self.nrows {
+        let base = i as isize * self.nrows as isize;
+        let mut ptr = self.mat.as_mut_ptr();
+        for t in 0..self.nrows as isize {
             unsafe {
-                *self.mat.get_unchecked_mut(i * self.nrows + t) += mul * (*vec.offset(t as isize));
+                *ptr.offset(base + t) += mul * (*vec.offset(t));
             }
         }
     }
     #[inline(always)]
     pub fn dot_row(&mut self, vec: *mut f32, i: usize) -> f32 {
         let mut sum = 0f32;
-        for t in 0..self.nrows {
+        let base = i as isize * self.nrows as isize;
+        let mut ptr = self.mat.as_mut_ptr();
+        for t in 0..self.nrows as isize {
             unsafe {
-                sum += *self.mat.get_unchecked(i * self.nrows + t) * (*vec.offset(t as isize));
+                sum += *ptr.offset(base + t) * (*vec.offset(t as isize));
             };
         }
         sum
