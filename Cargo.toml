@@ -6,4 +6,6 @@ authors = ["mklf <golifang1234@gmail.com>"]
 [dependencies]
 rand = "0.3"
 clap = "2.18.0"
+libc = "*"
 time = "*"
+blas-sys = "*"

@@ -3,6 +3,8 @@ use rand;
 use rand::distributions::{IndependentSample, Range};
 use std::cell::UnsafeCell;
 use std::ptr;
+use blas_sys::c;
+use libc::{c_float, c_int};
 pub struct MatrixWrapper {
     pub inner: UnsafeCell<Matrix>,
 }
@@ -10,14 +12,14 @@ unsafe impl Sync for MatrixWrapper {}
 
 pub struct Matrix {
     nrows: usize,
-    ncols: usize,
+    ncols: i32,
     mat: Vec<f32>,
 }
 impl Matrix {
     pub fn new(ncols: usize, nrows: usize) -> Matrix {
         Matrix {
             mat: vec![0f32;ncols * nrows],
-            ncols: ncols,
+            ncols: ncols as i32,
             nrows: nrows,
         }
     }
@@ -51,15 +53,8 @@ impl Matrix {
     }
     #[inline(always)]
     pub fn dot_row(&mut self, vec: *mut f32, i: usize) -> f32 {
-        let mut sum = 0f32;
-        let base = i as isize * self.nrows as isize;
         let mut ptr = self.mat.as_mut_ptr();
-        for t in 0..self.nrows as isize {
-            unsafe {
-                sum += *ptr.offset(base + t) * (*vec.offset(t as isize));
-            };
-        }
-        sum
+        unsafe { c::cblas_sdot(self.ncols, ptr, 1, vec, 1) }
     }
     #[inline(always)]
     pub fn get_row(&mut self, i: usize) -> *mut f32 {

@@ -1,5 +1,7 @@
 extern crate rand;
 extern crate time;
+extern crate blas_sys;
+extern crate libc;
 mod model;
 pub use model::Model;
 
