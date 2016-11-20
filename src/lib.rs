@@ -1,6 +1,7 @@
 extern crate rand;
-extern crate time;
+#[cfg(feature="blas")]
 extern crate blas_sys;
+extern crate time;
 extern crate libc;
 mod model;
 pub use model::Model;

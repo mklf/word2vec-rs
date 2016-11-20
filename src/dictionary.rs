@@ -7,7 +7,7 @@ use NEGATIVE_TABLE_SIZE;
 use rand::{thread_rng, Rng};
 pub struct Dict {
     word2ent: HashMap<String, Entry>,
-    idx2word: Vec<String>,
+    pub idx2word: Vec<String>,
     pub ntokens: usize,
     size: usize,
 }
@@ -33,10 +33,10 @@ impl Dict {
         for c in &counts {
             z += (*c as f64).powf(0.5);
         }
-        for i in counts {
+        for (idx, i) in counts.into_iter().enumerate() {
             let c = (i as f64).powf(0.5);
             for _ in 0..(c * NEGATIVE_TABLE_SIZE as f64 / z) as usize {
-                negative_table.push(i);
+                negative_table.push(idx as usize);
             }
         }
         let mut rng = thread_rng();
@@ -64,11 +64,11 @@ impl Dict {
         self.size
     }
 
-    pub fn counts(&self) -> Vec<usize> {
+    pub fn counts(&self) -> Vec<u32> {
 
         let mut counts_ = vec![0;self.idx2word.len()];
         for (i, v) in self.idx2word.iter().enumerate() {
-            counts_[i] = self.word2ent[v].index;
+            counts_[i] = self.word2ent[v].count;
         }
         counts_
     }
@@ -85,7 +85,7 @@ impl Dict {
         }
         i
     }
-    pub fn new_from_file(filename: &str) -> Dict {
+    pub fn new_from_file(filename: &str, min_count: u32) -> Dict {
         let mut dict = Dict::new();
         let input_file = match File::open(filename) {
             Ok(fp) => fp,
@@ -111,7 +111,7 @@ impl Dict {
         }
         size = 0;
         let word2ent: HashMap<String, Entry> = words.into_iter()
-            .filter(|&(_, ref v)| v.count >= 5)
+            .filter(|&(_, ref v)| v.count >= min_count)
             .map(|(k, mut v)| {
                 v.index = size;
                 size += 1;

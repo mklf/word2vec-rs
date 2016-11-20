@@ -1,23 +1,28 @@
 use matrix::Matrix;
 extern crate rand;
-use rand::{ThreadRng, thread_rng};
+use std::mem::size_of;
 use {MAX_SIGMOID, SIGMOID_TABLE_SIZE, LOG_TABLE_SIZE};
+#[cfg(feature="blas")]
+use blas_sys::c;
+use libc;
+use std::process;
 
+const SIGMOID_TABLE_SIZE_F: f32 = SIGMOID_TABLE_SIZE as f32;
+const LOG_TABLE_SIZE_F: f32 = LOG_TABLE_SIZE as f32;
 
 
 fn init_sigmoid_table() -> [f32; SIGMOID_TABLE_SIZE + 1] {
     let mut sigmoid_table = [0f32; SIGMOID_TABLE_SIZE + 1];
     for i in 0..SIGMOID_TABLE_SIZE + 1 {
-        let x = (i as f64 * 2f64 * MAX_SIGMOID as f64) / SIGMOID_TABLE_SIZE as f64 -
-                MAX_SIGMOID as f64;
-        sigmoid_table[i] = 1.0 / (1.0 + (-x).exp()) as f32;
+        let x = (i as f32 * 2. * MAX_SIGMOID) / SIGMOID_TABLE_SIZE_F - MAX_SIGMOID;
+        sigmoid_table[i] = 1.0 / (1.0 + (-x).exp());
     }
     sigmoid_table
 }
 fn init_log_table() -> [f32; LOG_TABLE_SIZE + 1] {
     let mut log_table = [0f32; LOG_TABLE_SIZE + 1];
     for i in 0..LOG_TABLE_SIZE + 1 {
-        let x = (i as f32 + 1e-5) / LOG_TABLE_SIZE as f32;
+        let x = (i as f32 + 1e-5) / LOG_TABLE_SIZE_F;
         log_table[i] = x.ln();
     }
     log_table
@@ -36,7 +41,7 @@ pub struct Model<'a> {
     log_table: [f32; LOG_TABLE_SIZE + 1],
     negative_table: Vec<usize>,
     loss: f32,
-    nsamples: usize,
+    nsamples: f32,
 }
 impl<'a> Model<'a> {
     pub fn new(input: &'a mut Matrix,
@@ -59,17 +64,18 @@ impl<'a> Model<'a> {
             log_table: init_log_table(),
             negative_table: neg_table,
             loss: 0.,
-            nsamples: 0,
+            nsamples: 0.,
         }
 
     }
     #[inline]
     fn log(&self, x: f32) -> f32 {
         if x > 1.0 {
-            return x;
+            x
+        } else {
+            let i = (x * (LOG_TABLE_SIZE_F)) as usize;
+            unsafe { *self.log_table.get_unchecked(i) }
         }
-        let i = (x * (LOG_TABLE_SIZE as f32)) as usize;
-        unsafe { *self.log_table.get_unchecked(i) }
     }
     #[inline]
     fn sigmoid(&self, x: f32) -> f32 {
@@ -78,13 +84,13 @@ impl<'a> Model<'a> {
         } else if x > MAX_SIGMOID {
             1f32
         } else {
-            let i = (x + MAX_SIGMOID as f32) * SIGMOID_TABLE_SIZE as f32 / MAX_SIGMOID as f32 / 2.;
+            let i = (x + MAX_SIGMOID) * SIGMOID_TABLE_SIZE_F / MAX_SIGMOID / 2.;
             unsafe { *self.sigmoid_table.get_unchecked(i as usize) }
         }
     }
     #[inline]
     pub fn get_loss(&self) -> f32 {
-        self.loss / self.nsamples as f32
+        self.loss / self.nsamples
     }
 
     #[inline(always)]
@@ -96,15 +102,18 @@ impl<'a> Model<'a> {
         self.lr
     }
 
-    fn binary_losgistic(&mut self, input_emb: *mut f32, target: usize, label: bool) -> f32 {
+    fn binary_losgistic(&mut self, input_emb: *mut f32, target: usize, label: i32) -> f32 {
         let sum = self.output.dot_row(input_emb, target);
         let score = self.sigmoid(sum);
-        let alpha = self.lr * (label as i32 as f32 - score);
+        let alpha = self.lr * (label as f32 - score);
         let tar_emb = self.output.get_row(target);
         self.add_mul_row(tar_emb, alpha);
         self.output.add_row(input_emb, target, alpha);
-        if label {
+
+        if label == 1 {
+            // unsafe { *tar_emb = sum }
             -self.log(score)
+
         } else {
             -self.log(1.0 - score)
         }
@@ -112,7 +121,7 @@ impl<'a> Model<'a> {
     #[inline(always)]
     pub fn update(&mut self, input: usize, target: usize) {
         self.loss += self.negative_sampling(input, target);
-        self.nsamples += 1;
+        self.nsamples += 1.;
     }
 
     fn negative_sampling(&mut self, input: usize, target: usize) -> f32 {
@@ -121,10 +130,10 @@ impl<'a> Model<'a> {
         self.grad_zero();
         for i in 0..self.neg {
             if i == 0 {
-                loss += self.binary_losgistic(input_emb, target, true);
+                loss += self.binary_losgistic(input_emb, target, 1);
             } else {
                 let neg_sample = self.get_negative(target);
-                loss += self.binary_losgistic(input_emb, neg_sample, false);
+                loss += self.binary_losgistic(input_emb, neg_sample, 0);
             }
         }
         self.input.add_row(self.grad_.as_mut_ptr(), input, 1.0);
@@ -132,6 +141,7 @@ impl<'a> Model<'a> {
     }
     fn get_negative(&mut self, target: usize) -> usize {
         loop {
+            // assert!(self.neg_pos < self.negative_table.len(), "overflow");
             let negative = self.negative_table[self.neg_pos];
             self.neg_pos = (self.neg_pos + 1) % self.negative_table.len();
             if target != negative {
@@ -142,12 +152,23 @@ impl<'a> Model<'a> {
 
     #[inline(always)]
     fn grad_zero(&mut self) {
-        for a in self.grad_.as_mut_slice() {
-            *a = 0f32;
-        }
+        unsafe {
+            libc::memset(self.grad_.as_mut_ptr() as *mut libc::c_void,
+                         0,
+                         self.dim * size_of::<f32>())
+        };
     }
+
+
+    #[cfg(feature="blas")]
     #[inline(always)]
-    fn add_mul_row(&mut self, other: *mut f32, a: f32) {
+    fn add_mul_row(&mut self, other: *const f32, a: f32) {
+        unsafe { c::cblas_saxpy(self.dim as i32, a, other, 1, self.grad_.as_mut_ptr(), 1) };
+    }
+
+    #[cfg(not(feature="blas"))]
+    #[inline(always)]
+    fn add_mul_row(&mut self, other: *const f32, a: f32) {
         for i in 0..self.grad_.len() {
             unsafe {
                 *self.grad_.get_unchecked_mut(i) += a * (*other.offset(i as isize));

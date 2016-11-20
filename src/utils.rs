@@ -8,7 +8,7 @@ pub struct Argument {
     pub epoch: u32,
     pub neg: usize,
     pub nthreads: u32,
-    pub min_count: usize,
+    pub min_count: u32,
     pub threshold: f32,
     pub lr_update: u32,
     pub command: String,
@@ -49,7 +49,7 @@ pub fn parse_arguments<'a>(args: &'a Vec<String>) -> Argument {
     let lr_update = train_info.value_of("lr_update").unwrap_or("100").parse::<u32>().unwrap();
     let vector_size = train_info.value_of("dim").unwrap_or("100").parse::<usize>().unwrap();
     let epoch = train_info.value_of("epoch").unwrap_or("5").parse::<u32>().unwrap();
-    let min_count = train_info.value_of("min_count").unwrap_or("5").parse::<usize>().unwrap();
+    let min_count = train_info.value_of("min_count").unwrap_or("5").parse::<u32>().unwrap();
     let nthreads = train_info.value_of("nthreads").unwrap_or("12").parse::<u32>().unwrap();
     let threshold = train_info.value_of("threshold").unwrap_or("1e-4").parse::<f32>().unwrap();
     Argument {

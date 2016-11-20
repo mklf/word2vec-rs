@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 use rand::distributions::{IndependentSample, Range};
 use rand::{ThreadRng, thread_rng};
 use time::PreciseTime;
+use std::process;
 static ALL_WORDS: AtomicUsize = ATOMIC_USIZE_INIT;
-
 #[inline]
 fn skipgram(model: &mut Model, line: &Vec<usize>, rng: &mut ThreadRng, unifrom: &Range<isize>) {
     let length = line.len() as i32;
@@ -29,7 +29,7 @@ fn train_thread(dict: &Dict,
                 arg: Argument,
                 tid: u32) {
 
-    let between = Range::new(1, arg.win as isize);
+    let between = Range::new(1, (arg.win + 1) as isize);
     let mut rng = thread_rng();
     let mut model = Model::new(&mut input,
                                &mut output,
@@ -46,22 +46,19 @@ fn train_thread(dict: &Dict,
     let mut w = Vec::new();
     let mut line: Vec<usize> = Vec::new();
     let start_bytes = (tid as f32 * (file_length as f32) / arg.nthreads as f32) as u64;
-    let (mut token_count, mut local_all_count) = (0, 0);
+    let (mut token_count, mut local_all_count, mut epoch) = (0, 2, 0);
     let all_tokens = dict.ntokens * arg.epoch as usize;
-    let mut epoch = 0;
     let thread_token = (dict.ntokens as f32 / arg.nthreads as f32) as usize;
-    // stdin().read_line(&mut buffer).unwrap();
-    // buffer.clear();
     while epoch < arg.epoch {
         reader.seek(SeekFrom::Start(start_bytes)).expect("seek error");
         if reader.read_until(b' ', &mut w).unwrap() > 0 {
             ALL_WORDS.fetch_add(1, Ordering::SeqCst);
+            local_all_count = 2;
             w.clear();
         }
         loop {
-            if local_all_count > thread_token {
+            if local_all_count >= thread_token {
                 epoch += 1;
-                local_all_count = 0;
                 break;
             }
             reader.read_line(&mut buffer).unwrap();
@@ -73,27 +70,27 @@ fn train_thread(dict: &Dict,
             line.clear();
             if token_count > arg.lr_update as usize {
                 let words = ALL_WORDS.fetch_add(token_count, Ordering::SeqCst) as f32;
-                let progress = words * 100. / all_tokens as f32;
+                let progress = words / all_tokens as f32;
+                model.set_lr(arg.lr * (1.0 - progress));
                 token_count = 0;
                 if tid == 0 {
-                    print!("\rProgress:{:.1}% words/sec/thread:{} loss:{:.8}",
-                           progress,
+                    print!("\rProgress:{:.1}% words/sec/thread:{:<7.0} lr:{:.4} loss:{:.5},{}",
+                           progress * 100.,
                            ((words * 1000.) /
                             (start_time.to(PreciseTime::now())
                                .num_milliseconds() as f32)) as u64,
-
-                           model.get_loss());
+                           model.get_lr(),
+                           model.get_loss(),
+                           local_all_count);
                     stdout().flush().unwrap();
                 }
             }
         }
     }
-
     ALL_WORDS.fetch_add(token_count, Ordering::SeqCst);
     if tid == 0 {
-        thread::sleep_ms(100);
         let words = ALL_WORDS.fetch_add(token_count, Ordering::SeqCst) as f32;
-        print!("\r{:.1}% {:.5} {}/Sec\n",
+        print!("\r{:.1}% {:.5} {}/sec\n",
                words * 100. / all_tokens as f32,
                model.get_loss(),
                words as i64 / (PreciseTime::now().to(start_time).num_milliseconds()) /
@@ -108,7 +105,7 @@ fn train_thread(dict: &Dict,
 }
 
 pub fn train(args: &Argument) {
-    let dict = Arc::new(Dict::new_from_file(&args.input));
+    let dict = Arc::new(Dict::new_from_file(&args.input, args.min_count));
     let mut input = Matrix::new(dict.nsize(), args.dim);
     let mut output = Matrix::new(dict.nsize(), args.dim);
     input.unifrom(1.0f32 / args.dim as f32);
