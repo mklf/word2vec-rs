@@ -5,11 +5,13 @@ use std::collections::HashMap;
 use std::process;
 use NEGATIVE_TABLE_SIZE;
 use rand::{thread_rng, Rng};
+use rand::distributions::{IndependentSample, Range};
 pub struct Dict {
     word2ent: HashMap<String, Entry>,
     pub idx2word: Vec<String>,
     pub ntokens: usize,
     size: usize,
+    discard_table: Vec<f32>,
 }
 struct Entry {
     index: usize,
@@ -24,6 +26,7 @@ impl Dict {
             idx2word: Vec::new(),
             ntokens: 0,
             size: 0,
+            discard_table: Vec::new(),
         }
     }
     pub fn init_negative_table(&self) -> Vec<usize> {
@@ -63,6 +66,14 @@ impl Dict {
     pub fn nsize(&self) -> usize {
         self.size
     }
+    #[inline(always)]
+    pub fn get_idx(&self, word: &str) -> usize {
+        self.word2ent[word].index
+    }
+    #[inline(always)]
+    pub fn get_word(&self, idx: usize) -> String {
+        self.idx2word[idx].clone()
+    }
 
     pub fn counts(&self) -> Vec<u32> {
 
@@ -74,18 +85,23 @@ impl Dict {
     }
     pub fn read_line(&self, line: &mut String, lines: &mut Vec<usize>) -> usize {
         let mut i = 0;
+        let mut rng = thread_rng();
+        let between = Range::new(0., 1.);
+
         for word in line.split_whitespace() {
             i += 1;
             match self.word2ent.get(word) {
                 Some(e) => {
-                    lines.push(e.index);
+                    if self.discard_table[e.index] > between.ind_sample(&mut rng) {
+                        lines.push(e.index);
+                    }
                 }
                 None => {}
             }
         }
         i
     }
-    pub fn new_from_file(filename: &str, min_count: u32) -> Dict {
+    pub fn new_from_file(filename: &str, min_count: u32, threshold: f32) -> Dict {
         let mut dict = Dict::new();
         let input_file = match File::open(filename) {
             Ok(fp) => fp,
@@ -129,6 +145,16 @@ impl Dict {
         dict.ntokens = ntokens;
         println!("\r Read {} M words", ntokens / 1000000);
         println!("\r {} unique words in total", size);
+        dict.init_discard(threshold);
         dict
     }
+    fn init_discard(&mut self, threshold: f32) {
+        let size = self.nsize();
+        self.discard_table.reserve_exact(size);
+        for i in 0..self.nsize() {
+            let f = self.word2ent[&self.idx2word[i]].count as f32 / self.ntokens as f32;
+            self.discard_table.push((threshold / f).sqrt() + threshold / f);
+        }
+    }
+    fn save(&self, fielname: &str) {}
 }

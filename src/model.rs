@@ -30,7 +30,7 @@ fn init_log_table() -> [f32; LOG_TABLE_SIZE + 1] {
 
 
 pub struct Model<'a> {
-    input: &'a mut Matrix,
+    pub input: &'a mut Matrix,
     output: &'a mut Matrix,
     dim: usize,
     lr: f32,
@@ -92,7 +92,6 @@ impl<'a> Model<'a> {
     pub fn get_loss(&self) -> f32 {
         self.loss / self.nsamples
     }
-
     #[inline(always)]
     pub fn set_lr(&mut self, lr: f32) {
         self.lr = lr;
@@ -128,7 +127,7 @@ impl<'a> Model<'a> {
         let input_emb = self.input.get_row(input);
         let mut loss = 0f32;
         self.grad_zero();
-        for i in 0..self.neg {
+        for i in 0..self.neg + 1 {
             if i == 0 {
                 loss += self.binary_losgistic(input_emb, target, 1);
             } else {

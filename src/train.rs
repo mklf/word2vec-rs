@@ -8,6 +8,7 @@ use rand::distributions::{IndependentSample, Range};
 use rand::{ThreadRng, thread_rng};
 use time::PreciseTime;
 use std::process;
+use Word2vec;
 static ALL_WORDS: AtomicUsize = ATOMIC_USIZE_INIT;
 #[inline]
 fn skipgram(model: &mut Model, line: &Vec<usize>, rng: &mut ThreadRng, unifrom: &Range<isize>) {
@@ -104,14 +105,16 @@ fn train_thread(dict: &Dict,
 
 }
 
-pub fn train(args: &Argument) {
-    let dict = Arc::new(Dict::new_from_file(&args.input, args.min_count));
-    let mut input = Matrix::new(dict.nsize(), args.dim);
-    let mut output = Matrix::new(dict.nsize(), args.dim);
-    input.unifrom(1.0f32 / args.dim as f32);
-    output.zero();
-    let input = Arc::new(input.clone());
-    let output = Arc::new(output.clone());
+pub fn train(args: &Argument) -> Word2vec {
+
+    let dict = Arc::new(Dict::new_from_file(&args.input, args.min_count, args.threshold));
+    let mut input_mat = Matrix::new(dict.nsize(), args.dim);
+    let mut output_mat = Matrix::new(dict.nsize(), args.dim);
+
+    input_mat.unifrom(1.0f32 / args.dim as f32);
+    output_mat.zero();
+    let input = Arc::new(input_mat.clone());
+    let output = Arc::new(output_mat.clone());
     let mut handles = Vec::new();
     for i in 0..args.nthreads {
         let dict = dict.clone();
@@ -132,4 +135,10 @@ pub fn train(args: &Argument) {
     for h in handles {
         h.join().unwrap();
     }
+
+
+    let mut w2v = Word2vec::new(input, output, args.dim, dict);
+    w2v.save(&args.output);
+    w2v.norm_self();
+    w2v
 }
