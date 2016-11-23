@@ -1,3 +1,11 @@
+#[derive(Debug)]
+enum W2vError {
+
+}
+enum ArgError {
+
+}
+
 #[derive(Debug,Clone)]
 pub struct Argument {
     pub input: String,
@@ -40,13 +48,25 @@ pub fn parse_arguments<'a>(args: &'a Vec<String>) -> Argument {
     )
         .get_matches_from(args);
 
-    let train_info = matches.subcommand_matches("train").unwrap();
+    let train_info = matches.subcommand_matches("train").expect("train argument error");
     let input = train_info.value_of("input").unwrap();
     let output = train_info.value_of("output").unwrap();
-    let win = train_info.value_of("win").unwrap_or("5").parse::<usize>().unwrap();
-    let neg = train_info.value_of("neg").unwrap_or("5").parse::<usize>().unwrap();
-    let lr = train_info.value_of("lr").unwrap_or("0.05").parse::<f32>().unwrap();
-    let lr_update = train_info.value_of("lr_update").unwrap_or("100").parse::<u32>().unwrap();
+    let win = train_info.value_of("win")
+        .unwrap_or("5")
+        .parse::<usize>()
+        .expect("win should be of type usize");
+    let neg = train_info.value_of("neg")
+        .unwrap_or("5")
+        .parse::<usize>()
+        .expect("neg should be of type usize");
+    let lr = train_info.value_of("lr")
+        .unwrap_or("0.05")
+        .parse::<f32>()
+        .expect("lr should be of type f32");
+    let lr_update = train_info.value_of("lr_update")
+        .unwrap_or("100")
+        .parse::<u32>()
+        .expect("lr_update should be of type u32");
     let vector_size = train_info.value_of("dim").unwrap_or("100").parse::<usize>().unwrap();
     let epoch = train_info.value_of("epoch").unwrap_or("5").parse::<u32>().unwrap();
     let min_count = train_info.value_of("min_count").unwrap_or("5").parse::<u32>().unwrap();

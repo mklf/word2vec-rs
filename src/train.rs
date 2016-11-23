@@ -5,13 +5,14 @@ use std::io::{stdout, BufReader, SeekFrom, Seek, BufRead, Write, stdin};
 use std::fs::{File, metadata};
 use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
 use rand::distributions::{IndependentSample, Range};
-use rand::{ThreadRng, thread_rng};
+use rand::{StdRng, thread_rng};
 use time::PreciseTime;
 use std::process;
 use Word2vec;
+
 static ALL_WORDS: AtomicUsize = ATOMIC_USIZE_INIT;
-#[inline]
-fn skipgram(model: &mut Model, line: &Vec<usize>, rng: &mut ThreadRng, unifrom: &Range<isize>) {
+
+fn skipgram(model: &mut Model, line: &Vec<usize>, rng: &mut StdRng, unifrom: &Range<isize>) {
     let length = line.len() as i32;
     for w in 0..length {
         let bound = unifrom.ind_sample(rng) as i32;
@@ -28,17 +29,18 @@ fn train_thread(dict: &Dict,
                 mut input: &mut Matrix,
                 mut output: &mut Matrix,
                 arg: Argument,
-                tid: u32) {
+                tid: u32,
+                neg_table: Arc<Vec<usize>>) {
 
     let between = Range::new(1, (arg.win + 1) as isize);
-    let mut rng = thread_rng();
+    let mut rng = StdRng::new().unwrap();
     let mut model = Model::new(&mut input,
                                &mut output,
                                arg.dim,
                                arg.lr,
                                tid,
                                arg.neg,
-                               dict.init_negative_table());
+                               neg_table);
     let start_time = PreciseTime::now();
     let input_file = File::open(arg.input.clone()).unwrap();
     let mut reader = BufReader::with_capacity(10000, input_file);
@@ -89,19 +91,6 @@ fn train_thread(dict: &Dict,
         }
     }
     ALL_WORDS.fetch_add(token_count, Ordering::SeqCst);
-    if tid == 0 {
-        let words = ALL_WORDS.fetch_add(token_count, Ordering::SeqCst) as f32;
-        print!("\r{:.1}% {:.5} {}/sec\n",
-               words * 100. / all_tokens as f32,
-               model.get_loss(),
-               words as i64 / (PreciseTime::now().to(start_time).num_milliseconds()) /
-               arg.nthreads as i64 / 1000);
-        stdout().flush().unwrap();
-        println!("total time:{},words{}",
-                 start_time.to(PreciseTime::now()).num_seconds(),
-                 ALL_WORDS.load(Ordering::SeqCst));
-    };
-
 
 }
 
@@ -113,14 +102,14 @@ pub fn train(args: &Argument) -> Word2vec {
 
     input_mat.unifrom(1.0f32 / args.dim as f32);
     output_mat.zero();
-    let input = Arc::new(input_mat.clone());
-    let output = Arc::new(output_mat.clone());
+    let input = Arc::new(input_mat.make_send());
+    let output = Arc::new(output_mat.make_send());
+    let neg_table = dict.init_negative_table();
     let mut handles = Vec::new();
     for i in 0..args.nthreads {
-        let dict = dict.clone();
-        let input = input.clone();
-        let output = output.clone();
-        let arg = args.clone();
+        let (input, output, dict, arg, neg_table) =
+            (input.clone(), output.clone(), dict.clone(), args.clone(), neg_table.clone());
+
         handles.push(thread::spawn(move || {
             let dict: &Dict = dict.as_ref();
             let input = input.as_ref().inner.get();
@@ -129,15 +118,21 @@ pub fn train(args: &Argument) -> Word2vec {
                          unsafe { &mut *input },
                          unsafe { &mut *output },
                          arg,
-                         i);
+                         i,
+                         neg_table);
         }));
     }
     for h in handles {
         h.join().unwrap();
     }
 
-
-    let mut w2v = Word2vec::new(input, output, args.dim, dict);
+    let input = Arc::try_unwrap(input).unwrap();
+    let output = Arc::try_unwrap(output).unwrap();
+    let dict = Arc::try_unwrap(dict).unwrap();
+    let mut w2v = Word2vec::new(unsafe { input.inner.into_inner() },
+                                unsafe { output.inner.into_inner() },
+                                args.dim,
+                                dict);
     w2v.save(&args.output);
     w2v.norm_self();
     w2v

@@ -3,6 +3,9 @@ extern crate rand;
 extern crate blas_sys;
 extern crate time;
 extern crate libc;
+extern crate rustc_serialize;
+extern crate bincode;
+
 mod model;
 pub use model::Model;
 
@@ -23,7 +26,6 @@ const LOG_TABLE_SIZE: usize = 512;
 
 mod w2v;
 pub use w2v::Word2vec;
-
 
 #[macro_use]
 extern crate clap;

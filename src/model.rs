@@ -5,7 +5,7 @@ use {MAX_SIGMOID, SIGMOID_TABLE_SIZE, LOG_TABLE_SIZE};
 #[cfg(feature="blas")]
 use blas_sys::c;
 use libc;
-use std::process;
+use std::sync::Arc;
 
 const SIGMOID_TABLE_SIZE_F: f32 = SIGMOID_TABLE_SIZE as f32;
 const LOG_TABLE_SIZE_F: f32 = LOG_TABLE_SIZE as f32;
@@ -39,7 +39,7 @@ pub struct Model<'a> {
     neg_pos: usize,
     sigmoid_table: [f32; SIGMOID_TABLE_SIZE + 1],
     log_table: [f32; LOG_TABLE_SIZE + 1],
-    negative_table: Vec<usize>,
+    negative_table: Arc<Vec<usize>>,
     loss: f32,
     nsamples: f32,
 }
@@ -50,7 +50,7 @@ impl<'a> Model<'a> {
                lr: f32,
                tid: u32,
                neg: usize,
-               neg_table: Vec<usize>)
+               neg_table: Arc<Vec<usize>>)
                -> Model<'a> {
         Model {
             input: input,

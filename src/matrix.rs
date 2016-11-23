@@ -1,17 +1,22 @@
 use rand;
-use rand::distributions::{IndependentSample, Range};
-use std::cell::UnsafeCell;
 #[cfg(feature="blas")]
 use blas_sys::c;
+use rand::distributions::{IndependentSample, Range};
+use std::cell::UnsafeCell;
+use bincode::rustc_serialize::{encode, encode_into, decode_from};
+
+#[derive(Debug)]
 pub struct MatrixWrapper {
     pub inner: UnsafeCell<Matrix>,
 }
 unsafe impl Sync for MatrixWrapper {}
 
+#[derive(RustcEncodable,RustcDecodable,PartialEq,Debug)]
 pub struct Matrix {
     row_size: usize,
     mat: Vec<f32>,
 }
+
 impl Matrix {
     pub fn new(rows: usize, row_size: usize) -> Matrix {
         Matrix {
@@ -30,7 +35,6 @@ impl Matrix {
                            1.,
                            self.mat.as_ptr(),
                            self.row_size as i32,
-                           // (self.mat.len() / self.row_size) as i32,
                            vec,
                            1,
                            1.,
@@ -41,7 +45,6 @@ impl Matrix {
     pub fn norm_self(&mut self) {
         let mut ptr = self.mat.as_mut_ptr();
         for i in 0..self.mat.len() / self.row_size {
-
             let basei = self.row_size as isize * i as isize;
             let n = self.norm(i);
             for j in 0..self.row_size {
@@ -49,7 +52,7 @@ impl Matrix {
             }
         }
     }
-    pub fn clone(self) -> MatrixWrapper {
+    pub fn make_send(self) -> MatrixWrapper {
         MatrixWrapper { inner: UnsafeCell::new(self) }
     }
     pub fn unifrom(&mut self, bound: f32) {

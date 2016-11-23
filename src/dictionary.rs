@@ -6,6 +6,10 @@ use std::process;
 use NEGATIVE_TABLE_SIZE;
 use rand::{thread_rng, Rng};
 use rand::distributions::{IndependentSample, Range};
+use std::sync::Arc;
+use bincode::rustc_serialize::{encode, encode_into, decode_from};
+
+#[derive(RustcEncodable, RustcDecodable, PartialEq,Debug)]
 pub struct Dict {
     word2ent: HashMap<String, Entry>,
     pub idx2word: Vec<String>,
@@ -13,6 +17,8 @@ pub struct Dict {
     size: usize,
     discard_table: Vec<f32>,
 }
+
+#[derive(RustcEncodable, RustcDecodable, PartialEq,Debug)]
 struct Entry {
     index: usize,
     count: u32,
@@ -29,7 +35,7 @@ impl Dict {
             discard_table: Vec::new(),
         }
     }
-    pub fn init_negative_table(&self) -> Vec<usize> {
+    pub fn init_negative_table(&self) -> Arc<Vec<usize>> {
         let mut negative_table = Vec::new();
         let counts = self.counts();
         let mut z = 0f64;
@@ -44,25 +50,35 @@ impl Dict {
         }
         let mut rng = thread_rng();
         rng.shuffle(&mut negative_table);
-        negative_table
+        Arc::new(negative_table)
 
     }
 
     fn add_to_dict(words: &mut HashMap<String, Entry>, word: &str, size: &mut usize) {
-        if !words.contains_key(word) {
-            words.insert(word.to_string(),
-                         Entry {
-                             index: *size,
-                             count: 1,
-                         });
-            *size += 1;
-        } else {
-            if let Some(x) = words.get_mut(word) {
-                x.count += 1;
-            }
-        }
+        words.entry(word.to_owned())
+            .or_insert_with(|| {
+                let ent = Entry {
+                    index: *size,
+                    count: 0,
+                };
+                *size += 1;
+                ent
+            })
+            .count += 1;
+        // if !words.contains_key(word) {
+        // words.insert(word.to_string(),
+        // Entry {
+        // index: *size,
+        // count: 1,
+        // });
+        // size += 1;
+        // } else {
+        // if let Some(x) = words.get_mut(word) {
+        // x.count += 1;
+        // }
+        // }
     }
-
+    #[inline(always)]
     pub fn nsize(&self) -> usize {
         self.size
     }
@@ -76,7 +92,6 @@ impl Dict {
     }
 
     pub fn counts(&self) -> Vec<u32> {
-
         let mut counts_ = vec![0;self.idx2word.len()];
         for (i, v) in self.idx2word.iter().enumerate() {
             counts_[i] = self.word2ent[v].count;
@@ -87,7 +102,6 @@ impl Dict {
         let mut i = 0;
         let mut rng = thread_rng();
         let between = Range::new(0., 1.);
-
         for word in line.split_whitespace() {
             i += 1;
             match self.word2ent.get(word) {
@@ -106,7 +120,7 @@ impl Dict {
         let input_file = match File::open(filename) {
             Ok(fp) => fp,
             Err(e) => {
-                stderr().write_fmt(format_args!("{}[文件名:{}]\n", e, filename)).unwrap();
+                stderr().write_fmt(format_args!("{}[file error:{}]\n", e, filename)).unwrap();
                 process::exit(1);
             }
         };
@@ -143,8 +157,8 @@ impl Dict {
         dict.idx2word.shrink_to_fit();
         dict.size = size;
         dict.ntokens = ntokens;
-        println!("\r Read {} M words", ntokens / 1000000);
-        println!("\r {} unique words in total", size);
+        println!("\rRead {} M words", ntokens / 1000000);
+        println!("\r{} unique words in total", size);
         dict.init_discard(threshold);
         dict
     }
