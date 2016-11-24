@@ -1,14 +1,12 @@
-use std::io::{BufReader, stdout, stderr};
+use std::io::{BufReader, stdout};
 use std::io::prelude::*;
 use std::fs::File;
 use std::collections::HashMap;
-use std::process;
 use NEGATIVE_TABLE_SIZE;
 use rand::{thread_rng, Rng};
 use rand::distributions::{IndependentSample, Range};
 use std::sync::Arc;
-use bincode::rustc_serialize::{encode, encode_into, decode_from};
-
+use super::W2vError;
 #[derive(RustcEncodable, RustcDecodable, PartialEq,Debug)]
 pub struct Dict {
     word2ent: HashMap<String, Entry>,
@@ -65,18 +63,6 @@ impl Dict {
                 ent
             })
             .count += 1;
-        // if !words.contains_key(word) {
-        // words.insert(word.to_string(),
-        // Entry {
-        // index: *size,
-        // count: 1,
-        // });
-        // size += 1;
-        // } else {
-        // if let Some(x) = words.get_mut(word) {
-        // x.count += 1;
-        // }
-        // }
     }
     #[inline(always)]
     pub fn nsize(&self) -> usize {
@@ -115,15 +101,9 @@ impl Dict {
         }
         i
     }
-    pub fn new_from_file(filename: &str, min_count: u32, threshold: f32) -> Dict {
+    pub fn new_from_file(filename: &str, min_count: u32, threshold: f32) -> Result<Dict, W2vError> {
         let mut dict = Dict::new();
-        let input_file = match File::open(filename) {
-            Ok(fp) => fp,
-            Err(e) => {
-                stderr().write_fmt(format_args!("{}[file error:{}]\n", e, filename)).unwrap();
-                process::exit(1);
-            }
-        };
+        let input_file = try!(File::open(filename));
         let mut reader = BufReader::with_capacity(10000, input_file);
         let mut buf_str = String::with_capacity(5000);
         let mut words: HashMap<String, Entry> = HashMap::new();
@@ -160,7 +140,7 @@ impl Dict {
         println!("\rRead {} M words", ntokens / 1000000);
         println!("\r{} unique words in total", size);
         dict.init_discard(threshold);
-        dict
+        Ok(dict)
     }
     fn init_discard(&mut self, threshold: f32) {
         let size = self.nsize();
@@ -170,5 +150,4 @@ impl Dict {
             self.discard_table.push((threshold / f).sqrt() + threshold / f);
         }
     }
-    fn save(&self, fielname: &str) {}
 }

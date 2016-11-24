@@ -3,7 +3,6 @@ use rand;
 use blas_sys::c;
 use rand::distributions::{IndependentSample, Range};
 use std::cell::UnsafeCell;
-use bincode::rustc_serialize::{encode, encode_into, decode_from};
 
 #[derive(Debug)]
 pub struct MatrixWrapper {
@@ -42,6 +41,8 @@ impl Matrix {
                            1);
         }
     }
+
+    #[allow(unused_mut)]
     pub fn norm_self(&mut self) {
         let mut ptr = self.mat.as_mut_ptr();
         for i in 0..self.mat.len() / self.row_size {
@@ -84,6 +85,7 @@ impl Matrix {
     }
     #[cfg(not(feature="blas"))]
     #[inline(always)]
+    #[allow(unused_mut)]
     pub fn add_row(&mut self, vec: *const f32, i: usize, mul: f32) {
         let base = i as isize * self.row_size as isize;
         let mut ptr = self.mat.as_mut_ptr();
@@ -122,7 +124,7 @@ impl Matrix {
         let mut sum = 0f32;
         let basei = self.row_size as isize * i as isize;
         let basej = self.row_size as isize * j as isize;
-        let mut ptr = self.mat.as_mut_ptr();
+        let ptr = self.mat.as_ptr();
         for t in 0..self.row_size as isize {
             unsafe {
                 sum += *ptr.offset(basei + t) * *ptr.offset(basej + t);
@@ -130,6 +132,8 @@ impl Matrix {
         }
         sum
     }
+
+    #[allow(unused_mut)]
     pub fn norm(&mut self, i: usize) -> f32 {
         let basei = self.row_size as isize * i as isize;
         let mut n = 0.;
@@ -142,11 +146,10 @@ impl Matrix {
 
     #[cfg(not(feature="blas"))]
     #[inline(always)]
-    #[inline(always)]
     pub fn dot_row(&mut self, vec: *const f32, i: usize) -> f32 {
         let mut sum = 0f32;
         let base = self.row_size as isize * i as isize;
-        let mut ptr = self.mat.as_mut_ptr();
+        let ptr = self.mat.as_ptr();
         for t in 0..self.row_size as isize {
             unsafe {
                 sum += *ptr.offset(base + t) * (*vec.offset(t as isize));
@@ -157,7 +160,10 @@ impl Matrix {
     }
     #[inline(always)]
     pub fn get_row(&mut self, i: usize) -> *mut f32 {
-        //       assert!(i * self.row_size < self.mat.len(), "overflow");
         unsafe { self.mat.get_unchecked_mut(i * self.row_size) }
+    }
+    #[inline(always)]
+    pub fn get_row_unmod(&self, i: usize) -> *const f32 {
+        unsafe { self.mat.get_unchecked(i * self.row_size) }
     }
 }

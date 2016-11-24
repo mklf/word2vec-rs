@@ -1,12 +1,11 @@
-use matrix::Matrix;
 extern crate rand;
-use std::mem::size_of;
-use {MAX_SIGMOID, SIGMOID_TABLE_SIZE, LOG_TABLE_SIZE};
 #[cfg(feature="blas")]
 use blas_sys::c;
 use libc;
 use std::sync::Arc;
-
+use std::mem::size_of;
+use matrix::Matrix;
+use {MAX_SIGMOID, SIGMOID_TABLE_SIZE, LOG_TABLE_SIZE};
 const SIGMOID_TABLE_SIZE_F: f32 = SIGMOID_TABLE_SIZE as f32;
 const LOG_TABLE_SIZE_F: f32 = LOG_TABLE_SIZE as f32;
 
@@ -48,7 +47,7 @@ impl<'a> Model<'a> {
                output: &'a mut Matrix,
                dim: usize,
                lr: f32,
-               tid: u32,
+               // tid: u32,
                neg: usize,
                neg_table: Arc<Vec<usize>>)
                -> Model<'a> {
