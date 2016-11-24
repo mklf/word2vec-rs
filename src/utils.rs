@@ -4,7 +4,6 @@ use std::fmt;
 use std::error;
 use std::io;
 use bincode;
-use std::process;
 #[derive(Debug)]
 pub enum W2vError {
     File(io::Error),

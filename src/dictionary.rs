@@ -101,7 +101,11 @@ impl Dict {
         }
         i
     }
-    pub fn new_from_file(filename: &str, min_count: u32, threshold: f32) -> Result<Dict, W2vError> {
+    pub fn new_from_file(filename: &str,
+                         min_count: u32,
+                         threshold: f32,
+                         verbose: bool)
+                         -> Result<Dict, W2vError> {
         let mut dict = Dict::new();
         let input_file = try!(File::open(filename));
         let mut reader = BufReader::with_capacity(10000, input_file);
@@ -137,8 +141,11 @@ impl Dict {
         dict.idx2word.shrink_to_fit();
         dict.size = size;
         dict.ntokens = ntokens;
-        println!("\rRead {} M words", ntokens / 1000000);
-        println!("\r{} unique words in total", size);
+        if verbose {
+            println!("\rRead {} M words", (ntokens / 1000000));
+            println!("\r{} unique words in total", size);
+
+        }
         dict.init_discard(threshold);
         Ok(dict)
     }

@@ -71,7 +71,7 @@ fn train_thread(dict: &Dict,
                 token_count = 0;
                 if tid == 0 {
                     if arg.verbose {
-                        info!("\rProgress:{:.1}% words/sec/thread:{:<7.0} lr:{:.4} loss:{:.5}",
+                        print!("\rProgress:{:.1}% words/sec/thread:{:<7.0} lr:{:.4} loss:{:.5}",
                            progress * 100.,
                            ((words * 1000.) /
                             (start_time.to(PreciseTime::now())
@@ -88,7 +88,7 @@ fn train_thread(dict: &Dict,
 }
 
 pub fn train(args: &Argument) -> Result<Word2vec, W2vError> {
-    let dict = try!(Dict::new_from_file(&args.input, args.min_count, args.threshold));
+    let dict = try!(Dict::new_from_file(&args.input, args.min_count, args.threshold, args.verbose));
 
     let dict = Arc::new(dict);
     let mut input_mat = Matrix::new(dict.nsize(), args.dim);
