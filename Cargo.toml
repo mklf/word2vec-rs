@@ -5,6 +5,7 @@ authors = ["mklf <golifang1234@gmail.com>"]
 [lib]
 name = "word2vec"
 path ="src/lib.rs"
+crate-type=["dylib","rlib"]
 [[bin]]
 name = "word2vec"
 path = "src/main.rs"
