@@ -40,7 +40,7 @@ pub struct Model<'a> {
     log_table: [f32; LOG_TABLE_SIZE + 1],
     negative_table: Arc<Vec<usize>>,
     loss: f32,
-    nsamples: f32,
+    nsamples: u64,
 }
 impl<'a> Model<'a> {
     pub fn new(input: &'a mut Matrix,
@@ -63,7 +63,7 @@ impl<'a> Model<'a> {
             log_table: init_log_table(),
             negative_table: neg_table,
             loss: 0.,
-            nsamples: 0.,
+            nsamples: 0,
         }
 
     }
@@ -89,7 +89,7 @@ impl<'a> Model<'a> {
     }
     #[inline]
     pub fn get_loss(&self) -> f32 {
-        self.loss / self.nsamples
+        self.loss / self.nsamples as f32
     }
     #[inline(always)]
     pub fn set_lr(&mut self, lr: f32) {
@@ -119,7 +119,7 @@ impl<'a> Model<'a> {
     #[inline(always)]
     pub fn update(&mut self, input: usize, target: usize) {
         self.loss += self.negative_sampling(input, target);
-        self.nsamples += 1.;
+        self.nsamples += 1;
     }
 
     fn negative_sampling(&mut self, input: usize, target: usize) -> f32 {

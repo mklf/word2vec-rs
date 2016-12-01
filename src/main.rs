@@ -13,7 +13,7 @@ fn main() {
     let arguments = arguments.unwrap();
     if arguments.command == Command::Train {
         let w2v = train(&arguments).unwrap();
-        w2v.save(&arguments.output);
+        w2v.save_vectors(&arguments.output);
 
     }
     if arguments.command == Command::Test {
