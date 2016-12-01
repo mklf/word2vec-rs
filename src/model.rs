@@ -7,7 +7,7 @@ use std::mem::size_of;
 use matrix::Matrix;
 use {MAX_SIGMOID, SIGMOID_TABLE_SIZE, LOG_TABLE_SIZE};
 const SIGMOID_TABLE_SIZE_F: f32 = SIGMOID_TABLE_SIZE as f32;
-const LOG_TABLE_SIZE_F: f64 = LOG_TABLE_SIZE as f64;
+const LOG_TABLE_SIZE_F: f32 = LOG_TABLE_SIZE as f32;
 
 
 fn init_sigmoid_table() -> [f32; SIGMOID_TABLE_SIZE + 1] {
@@ -18,10 +18,10 @@ fn init_sigmoid_table() -> [f32; SIGMOID_TABLE_SIZE + 1] {
     }
     sigmoid_table
 }
-fn init_log_table() -> [f64; LOG_TABLE_SIZE + 1] {
-    let mut log_table = [0f64; LOG_TABLE_SIZE + 1];
+fn init_log_table() -> [f32; LOG_TABLE_SIZE + 1] {
+    let mut log_table = [0f32; LOG_TABLE_SIZE + 1];
     for i in 0..LOG_TABLE_SIZE + 1 {
-        let x = (i as f64 + 1e-8) / LOG_TABLE_SIZE_F;
+        let x = (i as f32 + 1e-5) / LOG_TABLE_SIZE_F;
         log_table[i] = x.ln();
     }
     log_table
@@ -37,7 +37,7 @@ pub struct Model<'a> {
     grad_: Vec<f32>,
     neg_pos: usize,
     sigmoid_table: [f32; SIGMOID_TABLE_SIZE + 1],
-    log_table: [f64; LOG_TABLE_SIZE + 1],
+    log_table: [f32; LOG_TABLE_SIZE + 1],
     negative_table: Arc<Vec<usize>>,
     loss: f64,
     nsamples: u64,
@@ -67,11 +67,11 @@ impl<'a> Model<'a> {
         }
     }
     #[inline]
-    fn log(&self, x: f32) -> f64 {
+    fn log(&self, x: f32) -> f32 {
         if x > 1.0 {
             0.
         } else {
-            let i = (x as f64 * (LOG_TABLE_SIZE_F)) as usize;
+            let i = (x as f32 * (LOG_TABLE_SIZE_F)) as usize;
             unsafe { *self.log_table.get_unchecked(i) }
         }
     }
@@ -99,7 +99,7 @@ impl<'a> Model<'a> {
         self.lr
     }
 
-    fn binary_losgistic(&mut self, input_emb: *mut f32, target: usize, label: i32) -> f64 {
+    fn binary_losgistic(&mut self, input_emb: *mut f32, target: usize, label: i32) -> f32 {
         let sum = self.output.dot_row(input_emb, target);
         let score = self.sigmoid(sum);
         let alpha = self.lr * (label as f32 - score);
@@ -120,14 +120,14 @@ impl<'a> Model<'a> {
         self.nsamples += 1;
     }
     fn negative_sampling(&mut self, input: usize, target: usize) -> f64 {
+        let mut loss = 0f32;
         let input_emb = self.input.get_row(input);
-        let mut loss = 0f64;
         loss += self.binary_losgistic(input_emb, target, 1);
         for _ in 0..self.neg {
             let neg_sample = self.get_negative(target);
             loss += self.binary_losgistic(input_emb, neg_sample, 0);
         }
-        loss
+        loss as f64
     }
     fn get_negative(&mut self, target: usize) -> usize {
         loop {

@@ -4,7 +4,6 @@ use std::fs::File;
 use std::collections::HashMap;
 use NEGATIVE_TABLE_SIZE;
 use rand::{thread_rng, Rng};
-// use rand::distributions::{IndependentSample, Range};
 use std::sync::Arc;
 use super::W2vError;
 #[derive(RustcEncodable, RustcDecodable, PartialEq,Debug)]

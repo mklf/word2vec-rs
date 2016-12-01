@@ -62,7 +62,6 @@ impl Matrix {
         for v in &mut self.mat {
             *v = between.ind_sample(&mut rng);
         }
-
     }
     #[inline(always)]
     pub fn zero(&mut self) {
@@ -156,8 +155,8 @@ impl Matrix {
             };
         }
         sum
-
     }
+
     #[inline(always)]
     pub fn get_row(&mut self, i: usize) -> *mut f32 {
         unsafe { self.mat.get_unchecked_mut(i * self.row_size) }
