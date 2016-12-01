@@ -39,14 +39,14 @@ impl Word2vec {
         let topn = topn.unwrap_or(10);
         sorted.into_iter().take(topn).collect()
     }
-    pub fn save_vectors(&mut self, filename: &str) -> Result<bool, W2vError> {
+    pub fn save_vectors(&self, filename: &str) -> Result<bool, W2vError> {
         let size = self.dict.nsize();
         let mut file = try!(File::create(filename));
         let mut meta = Vec::new();
 
         try!(write!(&mut meta, "{} {}\n", size, self.dim));
         try!(file.write_all(&meta));
-        let start = self.syn0.get_row(0);
+        let start = self.syn0.get_row_unmod(0);
         for i in 0..size {
             try!(file.write_all(&self.dict.get_word(i).into_bytes()[..]));
             for j in 0..self.dim {
@@ -59,14 +59,14 @@ impl Word2vec {
         }
         Ok(true)
     }
-    pub fn save(&self, filename: &str) {
+    pub fn save(&self, filename: &str) -> Result<bool, W2vError> {
         let file = File::create(filename).unwrap();
         let mut writer = BufWriter::new(file);
-        encode_into(&self.dict, &mut writer, bincode::SizeLimit::Infinite).unwrap();
-        encode_into(&self.syn0, &mut writer, bincode::SizeLimit::Infinite).unwrap();
-        encode_into(&self.syn1neg, &mut writer, bincode::SizeLimit::Infinite).unwrap();
-        encode_into(&self.dim, &mut writer, bincode::SizeLimit::Infinite).unwrap();
-
+        try!(encode_into(&self.dict, &mut writer, bincode::SizeLimit::Infinite));
+        try!(encode_into(&self.syn0, &mut writer, bincode::SizeLimit::Infinite));
+        try!(encode_into(&self.syn1neg, &mut writer, bincode::SizeLimit::Infinite));
+        try!(encode_into(&self.dim, &mut writer, bincode::SizeLimit::Infinite));
+        Ok(true)
     }
     pub fn load_from(filename: &str) -> Result<Word2vec, W2vError> {
         let file = try!(File::open(filename));

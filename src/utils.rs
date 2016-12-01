@@ -9,6 +9,7 @@ pub enum W2vError {
     File(io::Error),
     RuntimeError,
     Decode(bincode::rustc_serialize::DecodingError),
+    Encode(bincode::rustc_serialize::EncodingError),
 }
 impl From<io::Error> for W2vError {
     fn from(err: io::Error) -> W2vError {
@@ -20,7 +21,11 @@ impl From<bincode::rustc_serialize::DecodingError> for W2vError {
         W2vError::Decode(err)
     }
 }
-
+impl From<bincode::rustc_serialize::EncodingError> for W2vError {
+    fn from(err: bincode::rustc_serialize::EncodingError) -> W2vError {
+        W2vError::Encode(err)
+    }
+}
 
 impl fmt::Display for W2vError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -28,6 +33,7 @@ impl fmt::Display for W2vError {
             W2vError::File(ref reason) => write!(f, "open file error:{}", reason),
             W2vError::Decode(ref reason) => write!(f, "decode file error:{}", reason),
             W2vError::RuntimeError => write!(f, "word2vec runtime error"),
+            W2vError::Encode(ref reason) => write!(f, "encode error:{}", reason),
         }
     }
 }
@@ -110,6 +116,7 @@ pub struct Argument {
     pub lr_update: u32,
     pub command: Command,
     pub verbose: bool,
+    pub save_format: String,
 }
 
 struct ArgumentBuilder {
@@ -126,6 +133,7 @@ struct ArgumentBuilder {
     pub lr_update: u32,
     pub command: Command,
     pub verbose: bool,
+    pub save_format: String,
 }
 impl ArgumentBuilder {
     pub fn new(input: String, command: Command) -> ArgumentBuilder {
@@ -143,6 +151,7 @@ impl ArgumentBuilder {
             lr_update: 100,
             command: command,
             verbose: false,
+            save_format: "".to_string(),
         }
     }
     #[allow(dead_code)]
@@ -201,6 +210,11 @@ impl ArgumentBuilder {
         self
     }
     #[allow(dead_code)]
+    pub fn save_format(&mut self, format: String) -> &mut Self {
+        self.save_format = format;
+        self
+    }
+    #[allow(dead_code)]
     pub fn finalize(&self) -> Argument {
         Argument {
             input: self.input.to_owned(),
@@ -216,6 +230,7 @@ impl ArgumentBuilder {
             lr_update: self.lr_update,
             command: self.command,
             verbose: self.verbose,
+            save_format: self.save_format.to_owned(),
         }
     }
 }
@@ -247,6 +262,7 @@ pub fn parse_arguments<'a>(args: &'a Vec<String>) -> Result<Argument, ArgumentEr
         (@arg nthreads: --thread +takes_value "number of threads(12)")
         (@arg threshold: --threshold +takes_value "sampling threshold(1e-4)")
         (@arg verbose: --verbose "print internal log")
+        (@arg save_format: --format +takes_value "save format(binary) binary or text")
         )
     );
     let matches = app.get_matches();
@@ -265,6 +281,13 @@ pub fn parse_arguments<'a>(args: &'a Vec<String>) -> Result<Argument, ArgumentEr
         let min_count = try!(train_info.value_of("min_count").unwrap_or("5").parse::<u32>());
         let nthreads = try!(train_info.value_of("nthreads").unwrap_or("12").parse::<u32>());
         let threshold = try!(train_info.value_of("threshold").unwrap_or("1e-4").parse::<f32>());
+        let format = train_info.value_of("save_format").unwrap_or("binary");
+        if !(format == "binary" || format == "text") {
+            return Err(ArgumentError::ParseArg(clap::Error::argument_not_found_auto("save format \
+                                                                                     should be \
+                                                                                     one of (binary,\
+                                                                                     text)")));
+        }
         Ok(Argument {
             input: input.to_string(),
             output: output.to_string(),
@@ -279,6 +302,7 @@ pub fn parse_arguments<'a>(args: &'a Vec<String>) -> Result<Argument, ArgumentEr
             lr_update: lr_update,
             command: Command::Train,
             verbose: train_info.is_present("verbose"),
+            save_format: format.to_string(),
         })
     } else if let Some(ref test_info) = matches.subcommand_matches("test") {
         let input = try!(test_info.value_of("input")

@@ -7,7 +7,11 @@ fn main() {
     let arguments = parse_arguments(&args_str).unwrap();
     if arguments.command == Command::Train {
         let w2v = train(&arguments).unwrap();
-        w2v.save(&arguments.output);
+        if arguments.save_format == "binary" {
+            w2v.save(&arguments.output).expect("save error");
+        } else {
+            w2v.save_vectors(&arguments.output).expect("save error");
+        }
     }
     if arguments.command == Command::Test {
         let w2v = word2vec::Word2vec::load_from(&arguments.input);
