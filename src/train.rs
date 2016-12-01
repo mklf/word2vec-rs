@@ -11,6 +11,7 @@ use Word2vec;
 use W2vError;
 static ALL_WORDS: AtomicUsize = ATOMIC_USIZE_INIT;
 
+
 fn skipgram(model: &mut Model, line: &Vec<usize>, rng: &mut StdRng, unifrom: &Range<isize>) {
     let length = line.len() as i32;
     for w in 0..length {
