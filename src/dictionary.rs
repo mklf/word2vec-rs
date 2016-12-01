@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::collections::HashMap;
 use NEGATIVE_TABLE_SIZE;
-use rand::{thread_rng, Rng};
+use rand::{thread_rng, Rng, StdRng};
 use rand::distributions::{IndependentSample, Range};
 use std::sync::Arc;
 use super::W2vError;
@@ -85,15 +85,18 @@ impl Dict {
         counts_
     }
 
-    pub fn convert_line(&self, line: &String, lines: &mut Vec<usize>) -> usize {
+    pub fn convert_line(&self,
+                        line: &String,
+                        lines: &mut Vec<usize>,
+                        between: &Range<f32>,
+                        rng: &mut StdRng)
+                        -> usize {
         let mut i = 0;
-        let mut rng = thread_rng();
-        let between = Range::new(0., 1.);
         for word in line.split_whitespace() {
             i += 1;
             match self.word2ent.get(word) {
                 Some(e) => {
-                    if self.discard_table[e.index] > between.ind_sample(&mut rng) {
+                    if self.discard_table[e.index] > between.ind_sample(rng) {
                         lines.push(e.index);
                     }
                 }

@@ -51,6 +51,7 @@ fn train_thread(dict: &Dict,
                 -> Result<bool, W2vError> {
 
     let between = Range::new(1, (arg.win + 1) as isize);
+    let discard = Range::new(0f32, 1f32);
     let mut rng = StdRng::new().unwrap();
     let mut model = Model::new(&mut input, &mut output, arg.dim, arg.lr, arg.neg, neg_table);
     let start_time = PreciseTime::now();
@@ -66,7 +67,7 @@ fn train_thread(dict: &Dict,
             let c = ch.unwrap();
             if c == b'\n' || (buf_vec.len() > 10000 && c == b' ') {
                 let buffer = String::from_utf8_lossy(&buf_vec).into_owned();
-                let token = dict.convert_line(&buffer, &mut line);
+                let token = dict.convert_line(&buffer, &mut line, &discard, &mut rng);
                 token_count += token;
                 skipgram(&mut model, &line, &mut rng, &between);
                 line.clear();
@@ -88,7 +89,7 @@ fn train_thread(dict: &Dict,
         }
         // TODO(Frank Lee): refector code to avoid duplicate
         let buffer = String::from_utf8_lossy(&buf_vec).into_owned();
-        let token = dict.convert_line(&buffer, &mut line);
+        let token = dict.convert_line(&buffer, &mut line, &discard, &mut rng);
         token_count += token;
         skipgram(&mut model, &line, &mut rng, &between);
         let num_words = ALL_WORDS.fetch_add(token_count, Ordering::SeqCst) as f32;
