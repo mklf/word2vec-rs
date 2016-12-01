@@ -33,7 +33,7 @@ fn print_info(model: &mut Model,
     if arg.verbose {
         print!("\rProgress:{:.1}% words/sec/thread:{:<7.0} lr:{:.4} loss:{:.5}",
                progress * 100.,
-               ((words * 1000.) /
+               ((words * 1000.) / arg.nthreads as f32 /
                 (start_time.to(PreciseTime::now())
                    .num_milliseconds() as f32)) as u64,
                model.get_lr(),
@@ -75,11 +75,7 @@ fn train_thread(dict: &Dict,
                     let num_words = ALL_WORDS.fetch_add(token_count, Ordering::SeqCst) as f32;
                     token_count = 0;
                     if tid == 0 {
-                        print_info(&mut model,
-                                   num_words / arg.nthreads as f32,
-                                   &arg,
-                                   &start_time,
-                                   all_tokens);
+                        print_info(&mut model, num_words, &arg, &start_time, all_tokens);
                     }
                 }
                 buf_vec.clear();
