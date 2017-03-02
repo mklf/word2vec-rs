@@ -3,6 +3,7 @@
 Word2Vec-rs is a fast implemention of word2vec's skip-gram algorithm.
 
 A simple benchmark on a 200M english corpus:
+
 4 thread:
 
 |tool | words per sec| memory  |
