@@ -10,7 +10,7 @@ A simple benchmark on a 200M english corpus:
 |---|---|---|
 |word2vec| 332k  | 616M|
 |gensim  |311k   | 249M|
-|word2vec-rs|641K|197M |
+|**word2vec-rs**|641K|197M |
 
 8 thread:
 
@@ -18,7 +18,7 @@ A simple benchmark on a 200M english corpus:
 |---|---|---|
 |word2vec| 611k  | 616M|
 |gensim  |539k   | 266M|
-|word2vec-rs|995k|203M |
+|**word2vec-rs**|995k|203M |
 
 # Building
 word2vec-rs is written in Rust, so you need a [Rust installation](https://www.rust-lang.org/) in order to compile it( It's super easy).
