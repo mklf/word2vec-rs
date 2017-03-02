@@ -20,6 +20,9 @@ A simple benchmark on a 200M english corpus:
 |gensim  |539k   | 266M|
 |**word2vec-rs**|995k|203M |
 
+* gensim version 0.13.3
+* word2vec(google code version): https://github.com/mklf/word2vec
+
 # Building
 word2vec-rs is written in Rust, so you need a [Rust installation](https://www.rust-lang.org/) in order to compile it( It's super easy).
 Rust version 1.14 or newer is tested.Building is easy:
