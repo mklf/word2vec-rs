@@ -7,6 +7,7 @@ use rand::{thread_rng, Rng};
 use rand::distributions::{IndependentSample, Range};
 use std::sync::Arc;
 use super::W2vError;
+use std::ops::Index;
 #[derive(RustcEncodable, RustcDecodable, PartialEq,Debug)]
 pub struct Dict {
     word2ent: HashMap<String, Entry>,
@@ -17,11 +18,12 @@ pub struct Dict {
 }
 
 #[derive(RustcEncodable, RustcDecodable, PartialEq,Debug)]
-struct Entry {
+pub struct Entry {
     index: usize,
-    count: u32,
+   pub count: u32,
 }
 
+const NEG_POW:f64 = 0.75;
 
 impl Dict {
     fn new() -> Dict {
@@ -38,10 +40,10 @@ impl Dict {
         let counts = self.counts();
         let mut z = 0f64;
         for c in &counts {
-            z += (*c as f64).powf(0.5);
+            z += (*c as f64).powf(NEG_POW);
         }
         for (idx, i) in counts.into_iter().enumerate() {
-            let c = (i as f64).powf(0.5);
+            let c = (i as f64).powf(NEG_POW);
             for _ in 0..(c * NEGATIVE_TABLE_SIZE as f64 / z) as usize {
                 negative_table.push(idx as usize);
             }
@@ -76,7 +78,10 @@ impl Dict {
     pub fn get_word(&self, idx: usize) -> String {
         self.idx2word[idx].clone()
     }
-
+    #[inline]
+    pub fn get_entry(&self,word:&str)->&Entry{
+        self.word2ent.index(word)
+    }
     pub fn counts(&self) -> Vec<u32> {
         let mut counts_ = vec![0;self.idx2word.len()];
         for (i, v) in self.idx2word.iter().enumerate() {
@@ -110,7 +115,7 @@ impl Dict {
         let input_file = try!(File::open(filename));
         let mut reader = BufReader::with_capacity(10000, input_file);
         let mut buf_str = String::with_capacity(5000);
-        let mut words: HashMap<String, Entry> = HashMap::new();
+        let mut words: HashMap<String, Entry> = HashMap::with_capacity(2<<20);
         let (mut ntokens, mut size) = (0, 0);
         while reader.read_line(&mut buf_str).unwrap() > 0 {
             for word in buf_str.split_whitespace() {

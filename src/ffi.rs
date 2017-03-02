@@ -1,6 +1,5 @@
 use std::ffi::{CStr,CString};
 use std::os::raw::c_char;
-use Argument;
 use parse_arguments;
 use train;
 use std::error::Error;

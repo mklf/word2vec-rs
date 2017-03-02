@@ -27,7 +27,6 @@ fn init_log_table() -> [f32; LOG_TABLE_SIZE + 1] {
     log_table
 }
 
-
 pub struct Model<'a> {
     pub input: &'a mut Matrix,
     output: &'a mut Matrix,
@@ -39,8 +38,9 @@ pub struct Model<'a> {
     sigmoid_table: [f32; SIGMOID_TABLE_SIZE + 1],
     log_table: [f32; LOG_TABLE_SIZE + 1],
     negative_table: Arc<Vec<usize>>,
-    loss: f32,
-    nsamples: u64,
+    loss: f64,
+    nsamples: u64, /* t_loss: f32,
+                    * t_sample: u64, */
 }
 impl<'a> Model<'a> {
     pub fn new(input: &'a mut Matrix,
@@ -63,7 +63,8 @@ impl<'a> Model<'a> {
             log_table: init_log_table(),
             negative_table: neg_table,
             loss: 0.,
-            nsamples: 0,
+            nsamples: 0, /* t_sample: 0,
+                          * t_loss: 0., */
         }
 
     }
@@ -88,8 +89,8 @@ impl<'a> Model<'a> {
         }
     }
     #[inline]
-    pub fn get_loss(&self) -> f32 {
-        self.loss / self.nsamples as f32
+    pub fn get_loss(&self) -> f64 {
+        self.loss / self.nsamples as f64
     }
     #[inline(always)]
     pub fn set_lr(&mut self, lr: f32) {
@@ -107,11 +108,8 @@ impl<'a> Model<'a> {
         let tar_emb = self.output.get_row(target);
         self.add_mul_row(tar_emb, alpha);
         self.output.add_row(input_emb, target, alpha);
-
         if label == 1 {
-            // unsafe { *tar_emb = sum }
             -self.log(score)
-
         } else {
             -self.log(1.0 - score)
         }
@@ -122,7 +120,7 @@ impl<'a> Model<'a> {
         self.nsamples += 1;
     }
 
-    fn negative_sampling(&mut self, input: usize, target: usize) -> f32 {
+    fn negative_sampling(&mut self, input: usize, target: usize) -> f64 {
         let input_emb = self.input.get_row(input);
         let mut loss = 0f32;
         self.grad_zero();
@@ -135,7 +133,7 @@ impl<'a> Model<'a> {
             }
         }
         self.input.add_row(self.grad_.as_mut_ptr(), input, 1.0);
-        loss
+        loss as f64
     }
     fn get_negative(&mut self, target: usize) -> usize {
         loop {
@@ -163,7 +161,6 @@ impl<'a> Model<'a> {
     fn add_mul_row(&mut self, other: *const f32, a: f32) {
         unsafe { c::cblas_saxpy(self.dim as i32, a, other, 1, self.grad_.as_mut_ptr(), 1) };
     }
-
     #[cfg(not(feature="blas"))]
     #[inline(always)]
     fn add_mul_row(&mut self, other: *const f32, a: f32) {

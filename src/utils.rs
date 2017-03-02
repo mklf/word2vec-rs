@@ -31,6 +31,16 @@ impl fmt::Display for W2vError {
         }
     }
 }
+
+impl error::Error for W2vError{
+    fn description(&self) -> &str {
+        match *self {
+            W2vError::File(ref err) => err.description(),
+            W2vError::RuntimeError => "RuntimeError",
+            W2vError::Decode(ref err) => err.description(),
+        }
+    }
+}
 pub enum ArgumentError {
     ParseArg(clap::Error),
     ParseInt(num::ParseIntError),
@@ -249,7 +259,7 @@ pub fn parse_arguments<'a>(args: &'a Vec<String>) -> Result<Argument, ArgumentEr
         (@arg verbose: --verbose "print internal log")
         )
     );
-    let matches = app.get_matches();
+    let matches = app.get_matches_from(args);
 
     if let Some(train_info) = matches.subcommand_matches("train") {
         let input = try!(train_info.value_of("input")
@@ -259,7 +269,7 @@ pub fn parse_arguments<'a>(args: &'a Vec<String>) -> Result<Argument, ArgumentEr
         let win = try!(train_info.value_of("win").unwrap_or("5").parse::<usize>());
         let neg = try!(train_info.value_of("neg").unwrap_or("5").parse::<usize>());
         let lr = try!(train_info.value_of("lr").unwrap_or("0.05").parse::<f32>());
-        let lr_update = try!(train_info.value_of("lr_update").unwrap_or("100").parse::<u32>());
+        let lr_update = try!(train_info.value_of("lr_update").unwrap_or("5000").parse::<u32>());
         let vector_size = try!(train_info.value_of("dim").unwrap_or("100").parse::<usize>());
         let epoch = try!(train_info.value_of("epoch").unwrap_or("5").parse::<u32>());
         let min_count = try!(train_info.value_of("min_count").unwrap_or("5").parse::<u32>());

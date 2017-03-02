@@ -5,8 +5,6 @@ extern crate time;
 extern crate libc;
 extern crate rustc_serialize;
 extern crate bincode;
-#[macro_use]
-extern crate log;
 mod model;
 pub use model::Model;
 
@@ -29,3 +27,6 @@ pub use w2v::Word2vec;
 pub use utils::W2vError;
 #[macro_use]
 extern crate clap;
+
+mod ffi;
+pub use ffi::*;
