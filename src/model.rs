@@ -1,10 +1,11 @@
 extern crate rand;
-#[cfg(feature="blas")]
-use blas_sys::c;
 use libc;
 use std::sync::Arc;
 use std::mem::size_of;
 use matrix::Matrix;
+use saxpy;
+
+
 use {MAX_SIGMOID, SIGMOID_TABLE_SIZE, LOG_TABLE_SIZE};
 const SIGMOID_TABLE_SIZE_F: f32 = SIGMOID_TABLE_SIZE as f32;
 const LOG_TABLE_SIZE_F: f32 = LOG_TABLE_SIZE as f32;
@@ -137,7 +138,6 @@ impl<'a> Model<'a> {
     }
     fn get_negative(&mut self, target: usize) -> usize {
         loop {
-            // assert!(self.neg_pos < self.negative_table.len(), "overflow");
             let negative = self.negative_table[self.neg_pos];
             self.neg_pos = (self.neg_pos + 1) % self.negative_table.len();
             if target != negative {
@@ -156,18 +156,11 @@ impl<'a> Model<'a> {
     }
 
 
-    #[cfg(feature="blas")]
     #[inline(always)]
     fn add_mul_row(&mut self, other: *const f32, a: f32) {
-        unsafe { c::cblas_saxpy(self.dim as i32, a, other, 1, self.grad_.as_mut_ptr(), 1) };
-    }
-    #[cfg(not(feature="blas"))]
-    #[inline(always)]
-    fn add_mul_row(&mut self, other: *const f32, a: f32) {
-        for i in 0..self.grad_.len() {
-            unsafe {
-                *self.grad_.get_unchecked_mut(i) += a * (*other.offset(i as isize));
-            }
+        unsafe {
+            saxpy(self.grad_.as_mut_ptr(),other,a,self.dim);
         }
     }
+
 }

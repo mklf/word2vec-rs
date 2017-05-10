@@ -71,9 +71,9 @@ fn train_thread(dict: &Dict,
                 model.set_lr(arg.lr * (1.0 - progress));
                 token_count = 0;
                 if tid == 0 {
-                    if arg.verbose {
+                    //if arg.verbose {
                         print_progress(&model, progress, words, &start_time);
-                    }
+                    //}
                 }
             }
         }
@@ -113,7 +113,8 @@ fn split_file(filename: &str, n_split: u64) -> Result<Vec<u64>, W2vError> {
     Ok(bytes)
 }
 pub fn train(args: &Argument) -> Result<Word2vec, W2vError> {
-    let dict = try!(Dict::new_from_file(&args.input, args.min_count, args.threshold, args.verbose));
+    let dict = try!(Dict::new_from_file(&args.input, args.min_count,
+                                        args.threshold, args.verbose));
 
     let dict = Arc::new(dict);
     let mut input_mat = Matrix::new(dict.nsize(), args.dim);

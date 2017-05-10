@@ -1,10 +1,6 @@
 extern crate rand;
-#[cfg(feature="blas")]
-extern crate blas_sys;
 extern crate time;
 extern crate libc;
-extern crate rustc_serialize;
-extern crate bincode;
 mod model;
 pub use model::Model;
 
@@ -30,3 +26,39 @@ extern crate clap;
 
 mod ffi;
 pub use ffi::*;
+
+use libc::size_t;
+
+#[link(name = "vec_arith")]
+extern {
+    pub fn simd_dot_product_x4(a: *const f32,b:*const f32,
+                            length: size_t )->f32;
+    pub fn simd_saxpy(dst:* mut f32, source:*const f32,scale:f32,size:size_t);
+
+    pub fn saxpy_x4(dst:* mut f32, source:*const f32,scale:f32,size:size_t);
+
+    pub fn simd_dot_product(a: *const f32,b:*const f32,
+                            length: size_t )->f32;
+
+    pub fn dot_product(a: *const f32,b:*const f32,
+                            length: size_t )->f32;
+
+
+    pub fn saxpy(dst:* mut f32, source:*const f32,scale:f32,size:size_t);
+    /*
+    fn snappy_compress(input: *const u8,
+                       input_length: size_t,
+                       compressed: *mut u8,
+                       compressed_length: *mut size_t) -> c_int;
+    fn snappy_uncompress(compressed: *const u8,
+                         compressed_length: size_t,
+                         uncompressed: *mut u8,
+                         uncompressed_length: *mut size_t) -> c_int;
+    fn snappy_max_compressed_length(source_length: size_t) -> size_t;
+    fn snappy_uncompressed_length(compressed: *const u8,
+                                  compressed_length: size_t,
+                                  result: *mut size_t) -> c_int;
+    fn snappy_validate_compressed_buffer(compressed: *const u8,
+                                         compressed_length: size_t) -> c_int;
+    */
+}

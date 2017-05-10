@@ -3,21 +3,14 @@ use std::num;
 use std::fmt;
 use std::error;
 use std::io;
-use bincode;
 #[derive(Debug)]
 pub enum W2vError {
     File(io::Error),
     RuntimeError,
-    Decode(bincode::rustc_serialize::DecodingError),
 }
 impl From<io::Error> for W2vError {
     fn from(err: io::Error) -> W2vError {
         W2vError::File(err)
-    }
-}
-impl From<bincode::rustc_serialize::DecodingError> for W2vError {
-    fn from(err: bincode::rustc_serialize::DecodingError) -> W2vError {
-        W2vError::Decode(err)
     }
 }
 
@@ -26,7 +19,6 @@ impl fmt::Display for W2vError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             W2vError::File(ref reason) => write!(f, "open file error:{}", reason),
-            W2vError::Decode(ref reason) => write!(f, "decode file error:{}", reason),
             W2vError::RuntimeError => write!(f, "word2vec runtime error"),
         }
     }
@@ -37,7 +29,6 @@ impl error::Error for W2vError{
         match *self {
             W2vError::File(ref err) => err.description(),
             W2vError::RuntimeError => "RuntimeError",
-            W2vError::Decode(ref err) => err.description(),
         }
     }
 }

@@ -1,9 +1,7 @@
 use {Matrix, Dict};
-use std::io::{BufWriter, BufReader};
 use std::io::prelude::*;
 use std::fs::File;
-use bincode;
-use bincode::rustc_serialize::{encode_into, decode_from};
+
 use utils::W2vError;
 pub struct Word2vec {
     syn0: Matrix,
@@ -51,12 +49,6 @@ impl Word2vec {
             let freq = self.dict.get_entry(&word);
             try!(file.write(&word.into_bytes()[..]));
             let s = format!(" {}\n",freq.count);
-            /*for j in 0..self.dim {
-                unsafe {
-                    let s = format!(" {}", *start.offset((i * self.dim + j) as isize));
-                    try!(file.write(&s.into_bytes()[..]));
-                }
-            }*/
             try!(file.write(&s.into_bytes()[..]));
         }
         use std::mem;
@@ -71,27 +63,5 @@ impl Word2vec {
         };
         Ok(true)
     }
-    pub fn save(&self, filename: &str) {
-        let file = File::create(filename).unwrap();
-        let mut writer = BufWriter::new(file);
-        encode_into(&self.dict, &mut writer, bincode::SizeLimit::Infinite).unwrap();
-        encode_into(&self.syn0, &mut writer, bincode::SizeLimit::Infinite).unwrap();
-        encode_into(&self.syn1neg, &mut writer, bincode::SizeLimit::Infinite).unwrap();
-        encode_into(&self.dim, &mut writer, bincode::SizeLimit::Infinite).unwrap();
 
-    }
-    pub fn load_from(filename: &str) -> Result<Word2vec, W2vError> {
-        let file = try!(File::open(filename));
-        let mut reader = BufReader::new(file);
-        let dict: Dict = try!(decode_from(&mut reader, bincode::SizeLimit::Infinite));
-        let syn0: Matrix = decode_from(&mut reader, bincode::SizeLimit::Infinite).unwrap();
-        let syn1neg: Matrix = decode_from(&mut reader, bincode::SizeLimit::Infinite).unwrap();
-        let dim: usize = decode_from(&mut reader, bincode::SizeLimit::Infinite).unwrap();
-        Ok(Word2vec {
-            dict: dict,
-            syn0: syn0,
-            syn1neg: syn1neg,
-            dim: dim,
-        })
-    }
 }

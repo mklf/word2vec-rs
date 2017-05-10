@@ -1,4 +1,5 @@
 [package]
+build="build.rs"
 name = "word2vec"
 version = "0.1.0"
 authors = ["mklf <golifang1234@gmail.com>"]
@@ -12,14 +13,12 @@ doc = false
 
 [features]
 default = []
-blas = ["blas-sys"]
 
+[build-dependencies]
+gcc = "0.3"
 
 [dependencies]
 rand = "0.3"
 clap = "2.18.0"
 time = "*"
 libc= "*"
-rustc-serialize = "0.3.21"
-bincode = "0.6.0"
-blas-sys = {version = "*",optional = true,default-features=false,features=["openblas"]}

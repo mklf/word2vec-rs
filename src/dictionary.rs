@@ -8,7 +8,8 @@ use rand::distributions::{IndependentSample, Range};
 use std::sync::Arc;
 use super::W2vError;
 use std::ops::Index;
-#[derive(RustcEncodable, RustcDecodable, PartialEq,Debug)]
+
+#[derive(Debug)]
 pub struct Dict {
     word2ent: HashMap<String, Entry>,
     pub idx2word: Vec<String>,
@@ -16,8 +17,7 @@ pub struct Dict {
     size: usize,
     discard_table: Vec<f32>,
 }
-
-#[derive(RustcEncodable, RustcDecodable, PartialEq,Debug)]
+#[derive(Debug)]
 pub struct Entry {
     index: usize,
    pub count: u32,
