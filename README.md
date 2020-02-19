@@ -1,4 +1,5 @@
-![Rust](https://github.com/mklf/word2vec-rs/workflows/Rust/badge.svg?branch=SSE_AVX)# Word2Vec-rs
+![Rust](https://github.com/mklf/word2vec-rs/workflows/Rust/badge.svg?branch=SSE_AVX)
+# Word2Vec-rs
 
 Word2Vec-rs is a fast implemention of word2vec's skip-gram algorithm.
 
