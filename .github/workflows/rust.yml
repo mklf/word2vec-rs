@@ -21,4 +21,4 @@ jobs:
         # Artifact name
         name: word2vec
         # Destination path
-        path: target/release 
+        path: target/release/word2vec
