@@ -15,10 +15,10 @@ jobs:
       run: cargo test --verbose
     - name: Build Release
       run: cargo build --verbose --release
-    - name: Download artifact
-      uses: actions/download-artifact@v1.0.0
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1.0.0
       with:
         # Artifact name
         name: word2vec
-        # Destination path
+        # Directory containing files to upload
         path: target/release/word2vec
