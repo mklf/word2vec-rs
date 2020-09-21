@@ -291,7 +291,7 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.2.20"
+version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "const_fn 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -435,7 +435,7 @@ dependencies = [
  "gcc 0.3.45 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.77 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)",
- "time 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [metadata]
@@ -478,7 +478,7 @@ dependencies = [
 "checksum strsim 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b4d15c810519a91cf877e7e36e63fe068815c678181439f2f29e2562147c3694"
 "checksum syn 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)" = "963f7d3cc59b59b9325165add223142bbf1df27655d07789f109896d353d8350"
 "checksum term_size 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "07b6c1ac5b3fffd75073276bca1ceed01f67a28537097a2a9539e116e50fb21a"
-"checksum time 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)" = "0d4953c513c9bf1b97e9cdd83f11d60c4b0a83462880a360d80d96953a953fee"
+"checksum time 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)" = "2c2e31fb28e2a9f01f5ed6901b066c1ba2333c04b64dc61254142bafcb3feb2c"
 "checksum time-macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "9ae9b6e9f095bc105e183e3cd493d72579be3181ad4004fceb01adbe9eecab2d"
 "checksum time-macros-impl 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e5c3be1edfad6027c69f5491cf4cb310d1a71ecd6af742788c6ff8bced86b8fa"
 "checksum unicode-segmentation 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "18127285758f0e2c6cf325bb3f3d138a12fee27de4f23e146cd6a179f26c2cf3"
