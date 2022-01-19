@@ -19,6 +19,6 @@ gcc = "0.3"
 
 [dependencies]
 rand = "0.4"
-clap = "2.33.3"
+clap = "3.0.10"
 time = "*"
 libc= "*"
